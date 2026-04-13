@@ -9,8 +9,9 @@
 
   /* Neon accents */
   --color-accent-green: #39FF14;
+  --color-accent-orange: #FF6B1A;
+  --color-accent-purple: #A855F7;
   --color-accent-blue: #00BFFF;
-  --color-accent-purple: #8B5CF6;
 
   /* Text */
   --color-text-primary: #E8E8F0;
@@ -19,8 +20,8 @@
 
   /* Glow intensities */
   --glow-green: 0 0 20px rgba(57, 255, 20, 0.3);
-  --glow-blue: 0 0 20px rgba(0, 191, 255, 0.3);
-  --glow-purple: 0 0 20px rgba(139, 92, 246, 0.3);
+  --glow-orange: 0 0 20px rgba(255, 107, 26, 0.3);
+  --glow-purple: 0 0 20px rgba(168, 85, 247, 0.4);
 
   /* Fonts */
   --font-sans: "Inter", "SF Pro Display", system-ui, sans-serif;
@@ -40,7 +41,7 @@ body {
   background: linear-gradient(180deg, var(--color-bg-primary) 0%, #0D0D22 50%, var(--color-bg-primary) 100%);
 }
 
-/* Ambient studio glow on the page edges */
+/* Ambient studio glow — purple more prominent now */
 body::before {
   content: "";
   position: fixed;
@@ -49,27 +50,28 @@ body::before {
   z-index: 0;
   background:
     radial-gradient(ellipse at 10% 20%, rgba(57, 255, 20, 0.04) 0%, transparent 50%),
-    radial-gradient(ellipse at 90% 80%, rgba(139, 92, 246, 0.04) 0%, transparent 50%),
-    radial-gradient(ellipse at 50% 0%, rgba(0, 191, 255, 0.03) 0%, transparent 40%);
+    radial-gradient(ellipse at 90% 80%, rgba(168, 85, 247, 0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 0%, rgba(168, 85, 247, 0.04) 0%, transparent 40%),
+    radial-gradient(ellipse at 30% 90%, rgba(255, 107, 26, 0.03) 0%, transparent 40%);
 }
 
-/* Glassmorphism card */
+/* Glassmorphism card — alternating green/purple glow on hover */
 .glass-card {
   background: rgba(22, 22, 51, 0.6);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(168, 85, 247, 0.08);
   border-radius: 12px;
   transition: border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 .glass-card:hover {
-  border-color: rgba(57, 255, 20, 0.2);
-  box-shadow: var(--glow-green);
+  border-color: rgba(168, 85, 247, 0.3);
+  box-shadow: var(--glow-purple);
 }
 
-/* Neon text utility */
+/* Neon text utilities */
 .neon-green { color: var(--color-accent-green); }
-.neon-blue { color: var(--color-accent-blue); }
+.neon-orange { color: var(--color-accent-orange); }
 .neon-purple { color: var(--color-accent-purple); }
 
 .neon-green-glow {
@@ -77,9 +79,14 @@ body::before {
   text-shadow: 0 0 10px rgba(57, 255, 20, 0.5);
 }
 
-/* Links */
+.neon-purple-glow {
+  color: var(--color-accent-purple);
+  text-shadow: 0 0 10px rgba(168, 85, 247, 0.6);
+}
+
+/* Links — purple default, green on hover */
 a {
-  color: var(--color-accent-blue);
+  color: var(--color-accent-purple);
   text-decoration: none;
   transition: color 0.2s ease;
 }
