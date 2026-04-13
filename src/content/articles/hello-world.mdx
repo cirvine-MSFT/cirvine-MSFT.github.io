@@ -1,29 +1,23 @@
 ---
 title: "Hello World"
-description: "First post on the new site. Testing the waters."
+description: "First post on the new site — what this is, why it exists, and how it's built."
 pubDate: 2026-04-13
 tags: ["Meta"]
-draft: true
+draft: false
 ---
 
-# Hello World
+Welcome to the site. I'm Casey, and this is where I'll be sharing what I'm building, learning, and tinkering with.
 
-This is a draft post to test the site scaffolding. Set `draft: false` in the frontmatter to publish it.
+## What to Expect
 
-## YouTube Embeds
+- **Short-form videos** (5–15 min) on topics like AI-assisted development, developer tools, and whatever I'm currently rabbit-holing on
+- **Blog posts** that go deeper than a video can, with code samples and links
+- **Project write-ups** for the things I'm building in public
 
-To embed a YouTube video in any article, add `youtubeId` to the frontmatter:
+## How This Site Works
 
-```yaml
-youtubeId: "dQw4w9WgXcQ"
-```
+This site is built with [Astro](https://astro.build), styled with [Tailwind CSS](https://tailwindcss.com), and hosted for free on [GitHub Pages](https://pages.github.com). Every article is an MDX file in a git repo. Push to `main` and it deploys automatically.
 
-The video will appear at the top of the article automatically.
+The whole thing was scaffolded in one session with GitHub Copilot CLI. The source is open: [cirvine-MSFT/cirvine-MSFT.github.io](https://github.com/cirvine-MSFT/cirvine-MSFT.github.io).
 
-## Writing Articles
-
-1. Create a new `.mdx` file in `src/content/articles/`
-2. Add frontmatter (title, description, pubDate, tags)
-3. Set `draft: true` while working on it
-4. Preview locally with `npm run dev`
-5. Set `draft: false` and push to publish
+More soon. Stay tuned.
