@@ -1,0 +1,46 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+
+const projects = [
+  {
+    name: 'EditLess',
+    description: 'Plan, delegate, and review your AI team\'s work. An agentic development workflow tool.',
+    url: 'https://github.com/cirvine-MSFT/editless',
+    tags: ['TypeScript', 'AI', 'Developer Tools'],
+  },
+  {
+    name: 'EditLess Service',
+    description: '.NET Brain + Web + Desktop + Windows Service for AI agent management.',
+    url: 'https://github.com/cirvine-MSFT/editless-service',
+    tags: ['C#', '.NET', 'AI'],
+  },
+  // Add more projects here
+];
+---
+
+<BaseLayout title="Projects" description="Open source projects and tools by Casey Irvine.">
+  <h1 class="text-4xl font-bold mb-2" style="color: var(--color-text-primary);">Projects</h1>
+  <p class="mb-10" style="color: var(--color-text-secondary);">
+    Things I've built, am building, or am pretending to maintain.
+  </p>
+
+  <div class="grid gap-6 md:grid-cols-2">
+    {projects.map((project) => (
+      <a href={project.url} target="_blank" rel="noopener" class="block glass-card p-6 group">
+        <h3 class="text-lg font-semibold mb-2 group-hover:text-[var(--color-accent-green)] transition-colors" style="color: var(--color-text-primary);">
+          {project.name}
+        </h3>
+        <p class="text-sm mb-4" style="color: var(--color-text-secondary);">
+          {project.description}
+        </p>
+        <div class="flex flex-wrap gap-2">
+          {project.tags.map((tag) => (
+            <span class="text-xs px-2 py-0.5 rounded-full" style="background: rgba(0,191,255,0.08); color: var(--color-accent-blue);">
+              {tag}
+            </span>
+          ))}
+        </div>
+      </a>
+    ))}
+  </div>
+</BaseLayout>

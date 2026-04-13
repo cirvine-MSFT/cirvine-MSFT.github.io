@@ -1,0 +1,41 @@
+---
+const navItems = [
+  { label: 'Home', href: '/' },
+  { label: 'Blog', href: '/articles' },
+  { label: 'Projects', href: '/projects' },
+  { label: 'Videos', href: '/videos' },
+  { label: 'About', href: '/about' },
+];
+
+const currentPath = Astro.url.pathname;
+---
+
+<header class="relative z-20 w-full border-b" style="border-color: rgba(255,255,255,0.06); background: rgba(11,11,26,0.8); backdrop-filter: blur(12px);">
+  <nav class="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
+    <a href="/" class="text-xl font-bold tracking-tight" style="color: var(--color-accent-green); text-shadow: 0 0 10px rgba(57,255,20,0.4);">
+      casey<span style="color: var(--color-accent-blue);">.</span>irvine
+    </a>
+    <ul class="flex gap-6 text-sm">
+      {navItems.map(({ label, href }) => (
+        <li>
+          <a
+            href={href}
+            class:list={[
+              'transition-colors duration-200',
+              currentPath === href || (href !== '/' && currentPath.startsWith(href))
+                ? 'font-semibold'
+                : '',
+            ]}
+            style={
+              currentPath === href || (href !== '/' && currentPath.startsWith(href))
+                ? 'color: var(--color-accent-green)'
+                : 'color: var(--color-text-secondary)'
+            }
+          >
+            {label}
+          </a>
+        </li>
+      ))}
+    </ul>
+  </nav>
+</header>

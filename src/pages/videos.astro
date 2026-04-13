@@ -1,0 +1,43 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import YouTubeEmbed from '../components/YouTubeEmbed.astro';
+
+// Add your YouTube video IDs here
+const videos: { id: string; title: string; description: string }[] = [
+  // {
+  //   id: 'dQw4w9WgXcQ',
+  //   title: 'My First Video',
+  //   description: 'A walkthrough of something cool.',
+  // },
+];
+---
+
+<BaseLayout title="Videos" description="Short-form video walkthroughs on software engineering, AI, and developer tools.">
+  <h1 class="text-4xl font-bold mb-2" style="color: var(--color-text-primary);">Videos</h1>
+  <p class="mb-10" style="color: var(--color-text-secondary);">
+    5-15 minute videos on topics I care about. Subscribe on
+    <a href="https://youtube.com/@caseyirvine" target="_blank" rel="noopener">YouTube</a>.
+  </p>
+
+  {videos.length === 0 ? (
+    <div class="glass-card p-8 text-center">
+      <p class="text-lg" style="color: var(--color-text-muted);">
+        Videos coming soon — stay tuned! 🎬
+      </p>
+    </div>
+  ) : (
+    <div class="grid gap-8 md:grid-cols-2">
+      {videos.map((video) => (
+        <div>
+          <YouTubeEmbed id={video.id} title={video.title} />
+          <h3 class="text-lg font-semibold mt-4" style="color: var(--color-text-primary);">
+            {video.title}
+          </h3>
+          <p class="text-sm mt-1" style="color: var(--color-text-secondary);">
+            {video.description}
+          </p>
+        </div>
+      ))}
+    </div>
+  )}
+</BaseLayout>

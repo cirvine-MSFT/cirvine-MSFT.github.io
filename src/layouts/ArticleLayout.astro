@@ -1,0 +1,53 @@
+---
+import BaseLayout from './BaseLayout.astro';
+import YouTubeEmbed from '../components/YouTubeEmbed.astro';
+
+interface Props {
+  frontmatter: {
+    title: string;
+    description: string;
+    pubDate: string;
+    tags?: string[];
+    youtubeId?: string;
+  };
+}
+
+const { frontmatter } = Astro.props;
+const formattedDate = new Date(frontmatter.pubDate).toLocaleDateString('en-US', {
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+});
+---
+
+<BaseLayout title={frontmatter.title} description={frontmatter.description}>
+  <article class="max-w-3xl mx-auto">
+    <header class="mb-10">
+      <p class="text-sm uppercase tracking-widest mb-3" style={`color: var(--color-text-muted)`}>
+        {formattedDate}
+      </p>
+      <h1 class="text-4xl font-bold mb-4 leading-tight" style={`color: var(--color-text-primary)`}>
+        {frontmatter.title}
+      </h1>
+      {frontmatter.tags && (
+        <div class="flex flex-wrap gap-2 mt-4">
+          {frontmatter.tags.map((tag: string) => (
+            <span class="text-xs px-3 py-1 rounded-full" style="background: var(--color-bg-card); color: var(--color-accent-green); border: 1px solid rgba(57, 255, 20, 0.2);">
+              {tag}
+            </span>
+          ))}
+        </div>
+      )}
+    </header>
+
+    {frontmatter.youtubeId && (
+      <div class="mb-10">
+        <YouTubeEmbed id={frontmatter.youtubeId} title={frontmatter.title} />
+      </div>
+    )}
+
+    <div class="prose max-w-none">
+      <slot />
+    </div>
+  </article>
+</BaseLayout>
