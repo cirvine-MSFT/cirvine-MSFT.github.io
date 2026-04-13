@@ -1,15 +1,24 @@
 ---
+import SocialIcon from '../components/SocialIcon.astro';
 const year = new Date().getFullYear();
 ---
 
 <footer class="relative z-20 w-full border-t mt-20 py-8 px-6" style="border-color: rgba(255,255,255,0.06);">
   <div class="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-sm" style="color: var(--color-text-muted);">
     <p>&copy; {year} Casey Irvine</p>
-    <div class="flex gap-5">
-      <a href="https://github.com/cirvine-MSFT" target="_blank" rel="noopener" style="color: var(--color-text-secondary);">GitHub</a>
-      <a href="https://youtube.com/@CaseyIrvine" target="_blank" rel="noopener" style="color: var(--color-text-secondary);">YouTube</a>
-      <a href="https://linkedin.com/in/caseyirvine" target="_blank" rel="noopener" style="color: var(--color-text-secondary);">LinkedIn</a>
-      <a href="/rss.xml" style="color: var(--color-text-secondary);">RSS</a>
+    <div class="flex items-center gap-5">
+      <a href="https://github.com/cirvine-MSFT" target="_blank" rel="noopener" class="social-icon" title="GitHub">
+        <SocialIcon name="github" size={20} />
+      </a>
+      <a href="https://youtube.com/@CaseyIrvine" target="_blank" rel="noopener" class="social-icon" title="YouTube">
+        <SocialIcon name="youtube" size={20} />
+      </a>
+      <a href="https://linkedin.com/in/caseyirvine" target="_blank" rel="noopener" class="social-icon" title="LinkedIn">
+        <SocialIcon name="linkedin" size={20} />
+      </a>
+      <a href="/rss.xml" class="social-icon" title="RSS">
+        <SocialIcon name="rss" size={20} />
+      </a>
     </div>
   </div>
 </footer>

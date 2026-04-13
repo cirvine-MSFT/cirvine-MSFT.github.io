@@ -1,6 +1,7 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import ArticleCard from '../components/ArticleCard.astro';
+import SocialIcon from '../components/SocialIcon.astro';
 import { getCollection } from 'astro:content';
 
 const articles = (await getCollection('articles', ({ data }) => !data.draft))
@@ -15,9 +16,23 @@ const articles = (await getCollection('articles', ({ data }) => !data.draft))
       <span style="color: var(--color-text-primary);">Casey</span>
       <span class="neon-green-glow"> Irvine</span>
     </h1>
-    <p class="text-xl mb-8" style="color: var(--color-text-secondary);">
+    <p class="text-xl mb-6" style="color: var(--color-text-secondary);">
       Software Engineer · Making it up as I go along
     </p>
+
+    <!-- Social icons -->
+    <div class="flex justify-center gap-5 mb-8">
+      <a href="https://github.com/cirvine-MSFT" target="_blank" rel="noopener" class="social-icon" title="GitHub">
+        <SocialIcon name="github" size={28} />
+      </a>
+      <a href="https://youtube.com/@CaseyIrvine" target="_blank" rel="noopener" class="social-icon" title="YouTube">
+        <SocialIcon name="youtube" size={28} />
+      </a>
+      <a href="https://linkedin.com/in/caseyirvine" target="_blank" rel="noopener" class="social-icon" title="LinkedIn">
+        <SocialIcon name="linkedin" size={28} />
+      </a>
+    </div>
+
     <div class="flex justify-center gap-4">
       <a href="/articles" class="inline-block px-6 py-3 rounded-lg text-sm font-semibold transition-all duration-300"
         style="background: var(--color-accent-green); color: var(--color-bg-primary); box-shadow: var(--glow-green);">
