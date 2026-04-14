@@ -6,7 +6,7 @@ Personal blog and portfolio for Casey Irvine — a software engineer who creates
 
 ## Voice & Tone
 
-Casey writes like he's talking to a friend who's curious about tech — not lecturing, not dumbing things down, just sharing what works for him.
+Casey writes like he's talking to a friend who's curious about tech — not lecturing, not dumbing things down, just sharing what works for him. He's an elder millennial, so his conversational tone, humor, and cultural references tend to land in that era — think late-90s/2000s internet culture, growing up with AIM and LAN parties, watching technology go from "novel" to "everywhere."
 
 ### Do
 
