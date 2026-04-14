@@ -1,0 +1,392 @@
+---
+title: "Customize Your Terminal with GitHub Copilot CLI"
+description: "Your terminal is more than a black box — it's your workbench. Here's how I use GitHub Copilot CLI to shape mine, and why the lost art of CLI tool crafting is making a comeback."
+pubDate: 2026-04-14
+tags: ["Copilot CLI", "Terminal", "Developer Tools", "Productivity"]
+draft: false
+youtubeId: "FkIA17TV0Ok"
+---
+
+import YouTubeEmbed from '../../components/YouTubeEmbed.astro';
+
+<div class="tldr-box">
+
+**TL;DR** — Your terminal is customizable, and you don't have to figure it all out yourself. If you're new to the CLI or overwhelmed by the options, just open GitHub Copilot CLI and tell it what you want — _"make my prompt show the git branch," "give me a shortcut for this command I keep typing," "help me set up split panes."_ It'll walk you through it. This post goes deep on my personal setup, but the real takeaway is: **start a conversation with Copilot and let it be your guide.**
+
+</div>
+
+## The Moment Someone Shows You the Ropes
+
+One of my core memories as a junior developer is a senior engineer pulling up a chair next to me, watching me type out a full `git stash && git pull origin main && git stash pop` for the third time that morning, and quietly saying: _"You know you don't have to do that by hand every time, right?"_
+
+> Actually, when I first started, we weren't even using Git yet, which probably dates me more than I'd like. The real workflow was even more arcane and now thoroughly outdated, but the lesson was the same: if you're doing the same commands over and over, you should probably automate it and simplify it.
+
+What followed was maybe a 20-minute session where they walked me through their shell profile — aliases, custom functions, prompt customizations. Nothing earth-shattering in isolation, but the cumulative effect was transformative. It wasn't just about saving keystrokes. It was someone saying, _"Hey, this tool you use every day? You can make it yours."_
+
+That sent me down a path of analyzing my own workflows and customizing my personal collection of scripts and command aliases even more to fit my needs until it involved into something uniquely mine. It has almost become part of my coding dna and I feel lost if I don't at least have some subset of my custom commands with me.
+
+I think about that moment a lot, because I'm not sure that mentorship happens as often anymore.
+
+## Where Did the CLI Mentorship Go?
+
+If you learned to code in the era of in-person offices, you probably had a version of this. Someone leaned over, saw you doing something the hard way, and showed you a better path. It was organic and informal — the kind of knowledge transfer that doesn't happen in a Confluence page or a recorded onboarding session.
+
+With remote work, agentic development, and the general trend toward GUI-first tooling, I wonder how many junior developers today ever get that moment. The terminal can feel like an afterthought — something you open when VS Code tells you to, or when a README says "run this command." It's easy to never think of it as something you *customize*, let alone something you *own*.
+
+And yet, with AI-powered tools like GitHub Copilot CLI living in the terminal, more people are spending time there than ever — sometimes for the first time. If you're one of those people, this post is for you.
+
+## What I Showed in the Video (and What I'll Go Deeper on Here)
+
+In the companion video above, I walk through my terminal setup live — Oh My Posh, custom aliases, split panes, and using Copilot CLI to make real-time customizations. It's a quick, visual overview. This post is the companion guide: the specific tools, config snippets, and ideas you can take and run with.
+
+## My Setup: The Building Blocks
+
+Here's the stack I'm working with. None of this is required — pick what appeals to you.
+
+| Layer | What I Use | What It Does |
+|-------|-----------|--------------|
+| **Terminal emulator** | [Windows Terminal](https://aka.ms/terminal) | Tabs, panes, GPU-accelerated rendering, deeply configurable |
+| **Shell** | PowerShell 7+ | Cross-platform, great scripting, extensible profile system |
+| **Prompt theme** | [Oh My Posh](https://ohmyposh.dev) | Shows git branch, status, folder, and whatever else you want in your prompt |
+| **AI assistant** | [GitHub Copilot CLI](https://githubnext.com/projects/copilot-cli) | Chat, code generation, research, and file editing — all from the terminal |
+| **Worktree manager** | [Worktrunk](https://github.com/nickvdyck/worktrunk) | A CLI wrapper around git worktrees that makes creating, switching, and merging worktrees painless |
+| **Version control for config** | A personal Git repo | So my settings roam across machines |
+
+If you're on macOS or Linux, the equivalent might be iTerm2 or Alacritty for the terminal, zsh with Oh My Zsh (or Oh My Posh — it works there too), and the same Copilot CLI.
+
+## How I Organize It: The Personal Config Repo
+
+I keep all of my durable terminal configuration in a single Git repo. Think of it like dotfiles, but structured around the idea that everything should be restorable on a new machine. Here's the layout:
+
+```
+personal-config/
+├── powershell/                  # Shell profile & prompt theme
+│   ├── Microsoft.PowerShell_profile.ps1   # Entry point (dot-sources profile.ps1)
+│   ├── profile.ps1              # The actual profile logic
+│   ├── casey-terminal.omp.json  # My Oh My Posh theme
+│   └── ProfileHelpers/          # Modular .psm1 files
+│       ├── Alias.psm1           # General aliases (ff, fd, cpwd, rmrf)
+│       ├── Git.psm1             # Git aliases and functions (gup, gst, gwta…)
+│       ├── Dirs.psm1            # Directory navigation shortcuts
+│       └── Shortcuts.psm1       # Command catalog & discovery helpers
+├── windows-terminal/
+│   ├── settings.json.template   # WT settings with machine-specific placeholders
+│   └── console_background.png   # Background image
+├── copilot/                     # Copilot CLI personal instructions, scripts, & skills
+├── git/                         # Shared git configuration
+├── bootstrap/
+│   ├── Sync.ps1                 # Copies everything to live locations
+│   ├── Install.ps1              # First-run setup
+│   └── Doctor.ps1               # Verification script
+└── machine/
+    └── machine.local.psd1       # Machine-specific paths (gitignored)
+```
+
+The key insight here is the **separation of source from live config**. I edit files in the repo, then run a sync script that copies them to the right places — my PowerShell profile directory, the Windows Terminal settings folder, etc. The sync script was something I had Copilot CLI write for me in a single session. I described what I wanted — "copy these managed files to their live locations, render templates for machine-specific paths, and back up anything it's about to overwrite" — and it produced a working `Sync.ps1` that I've been using and iterating on ever since.
+
+The daily workflow is simple: edit config in the repo, run `.\bootstrap\Sync.ps1`, and everything is deployed. If something breaks, the backups are right there. And because it's a Git repo, I can see exactly what changed and when.
+
+## PowerShell Profile: How It's Structured
+
+If you've never customized your PowerShell profile, here's the quick primer. PowerShell loads a profile script every time you open a new shell. You can find yours by typing `$PROFILE` in a PowerShell window — it'll print the path.
+
+On PowerShell 7+, the standard location is:
+
+```
+~/Documents/PowerShell/Microsoft.PowerShell_profile.ps1
+```
+
+My approach is to keep that entry point file tiny — it just dot-sources the real profile:
+
+```powershell
+# Microsoft.PowerShell_profile.ps1
+# Dot-sources the actual profile.ps1 for easier version control management
+. (Join-Path $PSScriptRoot "profile.ps1")
+```
+
+Then `profile.ps1` does the heavy lifting: setting up the module path, configuring PSReadLine for history-based predictions, initializing Oh My Posh, importing helper modules, and registering my shortcuts. The helper modules are organized by concern — `Git.psm1` for git commands, `Alias.psm1` for general aliases, `Dirs.psm1` for navigation, and `Shortcuts.psm1` for the command catalog.
+
+This modular structure means I'm not staring at a 500-line profile file. Each module is focused, and I can hand any one of them to Copilot CLI and say "add a new shortcut for X" without it needing to understand the whole setup.
+
+### PSReadLine: History-Powered Predictions
+
+One of the first things my profile configures is PSReadLine — the module that handles your command line editing in PowerShell. These few lines make a huge difference:
+
+```powershell
+Set-PSReadLineOption -PredictionSource History
+Set-PSReadLineOption -PredictionViewStyle ListView
+Set-PSReadLineOption -EditMode Windows
+Set-PSReadLineKeyHandler -Key UpArrow -Function HistorySearchBackward
+Set-PSReadLineKeyHandler -Key DownArrow -Function HistorySearchForward
+```
+
+This gives you inline suggestions based on your command history as you type, displayed as a selectable list. Start typing `git` and you'll see your most recent git commands ready to pick from. The up/down arrow key bindings let you search history by prefix — type `gup` and press up to find the last time you ran it. If you don't customize anything else, customize this.
+
+## Oh My Posh: My Actual Theme
+
+Oh My Posh gives you a customizable prompt that can show contextual info — your current Git branch, whether you have uncommitted changes, the time, your current folder, even the language runtime version.
+
+### Getting Started
+
+```powershell
+# Install Oh My Posh (Windows)
+winget install JanDeLaworst.OhMyPosh -s winget
+
+# Or with Homebrew (macOS/Linux)
+brew install jandelaworst/oh-my-posh/oh-my-posh
+```
+
+There are [dozens of built-in themes](https://ohmyposh.dev/docs/themes) to start from. Pick one, then tweak it.
+
+Here's my actual theme config — `casey-terminal.omp.json`. It's a powerline-style prompt with three info segments and a clean prompt character:
+
+```json
+{
+  "$schema": "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/schema.json",
+  "version": 3,
+  "final_space": true,
+  "console_title_template": "{{ .Folder }}",
+  "blocks": [
+    {
+      "type": "prompt",
+      "alignment": "left",
+      "segments": [
+        {
+          "type": "path",
+          "style": "powerline",
+          "powerline_symbol": "\ue0b0",
+          "foreground": "#F8FBFF",
+          "background": "#2563EB",
+          "template": " \uf07c {{ .Path }} ",
+          "properties": { "style": "folder" }
+        },
+        {
+          "type": "git",
+          "style": "powerline",
+          "powerline_symbol": "\ue0b0",
+          "foreground": "#04130C",
+          "background": "#34D399",
+          "template": " {{ .UpstreamIcon }}{{ .HEAD }}{{ if .BranchStatus }} {{ .BranchStatus }}{{ end }}{{ if .Working.Changed }} \uf044 {{ .Working.String }}{{ end }}{{ if .Staging.Changed }} \uf00c {{ .Staging.String }}{{ end }} ",
+          "properties": {
+            "branch_icon": "\ue0a0 ",
+            "fetch_status": true,
+            "fetch_upstream_icon": true
+          }
+        },
+        {
+          "type": "status",
+          "style": "powerline",
+          "powerline_symbol": "\ue0b0",
+          "foreground": "#FFFFFF",
+          "background": "#7C3AED",
+          "template": " \uf071 {{ .Code }} ",
+          "properties": { "always_enabled": false }
+        },
+        {
+          "type": "text",
+          "style": "plain",
+          "foreground": "#A78BFA",
+          "template": " \u276f "
+        }
+      ]
+    }
+  ]
+}
+```
+
+**What each segment does:**
+
+- **Path** (blue `#2563EB` background) — shows the current folder name with a folder icon
+- **Git** (green `#34D399` background) — shows the branch, upstream status, and working/staged change counts. This is the one I asked Copilot to change to neon green in the video
+- **Status** (purple `#7C3AED` background) — only appears when the last command failed, showing the exit code
+- **Prompt character** (purple `#A78BFA`) — a clean `❯` to keep the actual input line uncluttered
+
+### The Neon Green Moment
+
+In the video, I asked Copilot CLI to change that Git segment's background from `#34D399` (a muted emerald) to an obnoxious neon green — the kind of color that looks like an 80s terminal. Copilot found my Oh My Posh config file, identified the right segment, and swapped the color. No digging through JSON, no searching docs.
+
+That's the magic: **you describe what you want in plain language, and Copilot makes the edit.** If you've ever stared at a theme file full of hex codes and segment types and thought _"I just want the branch name to be green,"_ this is your answer.
+
+## Aliases and Custom Functions
+
+Here's a selection of what lives in my profile helper modules. These are the shortcuts I use constantly.
+
+### Git Shortcuts (from `Git.psm1`)
+
+```powershell
+Set-Alias g    git -Force           # Because even 'git' is too long sometimes
+Set-Alias gst  Git-Status -Force    # git status
+Set-Alias gls  Git-Log -Force       # Pretty graph log
+Set-Alias gdf  Git-Diff -Force      # git diff
+Set-Alias gco  Git-Checkout -Force  # git checkout
+Set-Alias gpu  Git-Push -Force      # git push
+Set-Alias gcap Git-CommitAllPush    # git add --all && git commit && git push
+Set-Alias gmbr Git-MyBranches      # List my remote branches by most recent
+Set-Alias gsf  Git-SyncFork        # Sync a fork with upstream
+```
+
+### GUP: Git Update with Auto-Stash
+
+This is the one I talked about in the video — `gup` stashes your work, pulls with rebase, updates submodules, and restores your stash:
+
+```powershell
+function Git-UpdateBranch {
+    Git-AddAll
+    git stash
+    git pull --rebase --prune $args
+    git submodule update --init --recursive
+    git stash pop
+}
+
+Set-Alias gup Git-UpdateBranch -Force
+```
+
+I never accidentally lose uncommitted work when pulling, and I never have to think about whether I need to stash first. It just does the right thing.
+
+### Worktree Shortcuts
+
+I use [Git worktrees](https://git-scm.com/docs/git-worktree) heavily — they let you check out multiple branches in separate directories from a single clone. Great for working on parallel changes or having an agent work on one branch while you're on another. I manage them through [Worktrunk](https://github.com/nickvdyck/worktrunk), which wraps the raw `git worktree` commands with a friendlier CLI — things like interactive branch pickers and automatic cleanup. These aliases all call `git-wt` (the Worktrunk binary) under the hood:
+
+```powershell
+Set-Alias gwta  Git-CreateWorktree   # gwta <branch> [-b base] — create a new worktree
+Set-Alias gwts  Git-SwitchWorktree   # gwts [branch] — switch (interactive picker if no branch)
+Set-Alias gwtl  Git-ListWorktrees    # gwtl — list worktrees with status
+Set-Alias gwtr  Git-RemoveWorktree   # gwtr <branch> — remove worktree and clean up
+Set-Alias gwtm  Git-MergeWorktree    # gwtm — merge current worktree branch
+```
+
+### Navigation Shortcuts (from `Dirs.psm1`)
+
+```powershell
+Set-Alias gocode  Go-Code   # Jump to your configured code root
+Set-Alias gowork  Go-Work   # Jump to your configured work root
+Set-Alias goprof  Go-Prof   # Jump to the live PowerShell profile directory
+Set-Alias cpwd    Copy-Pwd  # Copy the current directory to the clipboard
+```
+
+### General Utility (from `Alias.psm1`)
+
+```powershell
+Set-Alias rmrf Remove-DirRecursiveForce  # rmdir -Recurse -Force
+Set-Alias ku   Kube-Control              # kubectl shortcut
+Set-Alias cc   Invoke-CopilotShortcut    # Launch Copilot CLI with default flags
+```
+
+### Built-In Discovery
+
+One thing I'm proud of: the profile has a built-in `shortcuts` command that shows you all available aliases and hotkeys, organized by category:
+
+```powershell
+shortcuts                          # Show everything
+shortcuts -Category Git            # Just git aliases
+shortcuts -Category Worktree       # Just worktree commands
+shortcuts -Category AI             # Copilot and agent shortcuts
+shortcuts -Category WindowsTerminal  # Terminal hotkeys
+aliases                            # Just the aliases, no terminal keys
+wtkeys                             # Just the Windows Terminal shortcuts
+```
+
+This solves the problem of setting up a bunch of aliases and then forgetting what they are six months later.
+
+## Windows Terminal: My Actual Settings
+
+Windows Terminal has deep customization that a lot of people never discover.
+
+### My Split Pane Setup
+
+I almost always work with a split layout: Copilot CLI on one side, a regular shell on the other. In the video, you saw me pop open a side pane with a keyboard shortcut. Here's what that looks like in my Windows Terminal `settings.json`:
+
+```json
+{
+    "command": {
+        "action": "splitPane",
+        "split": "right",
+        "splitMode": "duplicate",
+        "size": 0.35
+    },
+    "keys": "ctrl+shift+/"
+}
+```
+
+That `"size": 0.35` is key — it creates a 65/35 split, giving the main pane more real estate while the side pane is just big enough for shell commands. `"splitMode": "duplicate"` means it opens in the same directory, which is almost always what I want.
+
+I also have a horizontal split for when I want a log tail or build output below:
+
+```json
+{
+    "command": {
+        "action": "splitPane",
+        "split": "down",
+        "splitMode": "duplicate"
+    },
+    "keys": "alt+shift+minus"
+}
+```
+
+### Other Useful Hotkeys from My Config
+
+| Shortcut | What It Does |
+|----------|-------------|
+| `Ctrl+Shift+P` | Command palette — search any terminal action |
+| `Ctrl+Shift+T` | New tab |
+| `Ctrl+Shift+W` | Close tab or pane |
+| `Ctrl+Shift+/` | Split pane vertically (65/35) |
+| `Alt+Arrow` | Move focus between panes |
+| `Ctrl+Shift+R` | Rename the current tab |
+| `Ctrl+Shift+G` | Change the current tab's color |
+
+### Font and Background
+
+My default profile uses **CaskaydiaCove Nerd Font** — a [Nerd Font](https://www.nerdfonts.com/) variant of Cascadia Code that includes all the glyphs Oh My Posh needs for powerline symbols and icons. Without a Nerd Font, you'll see broken characters in your prompt.
+
+```json
+"defaults": {
+    "font": {
+        "face": "CaskaydiaCove Nerd Font"
+    },
+    "backgroundImage": "console_background.png",
+    "backgroundImageOpacity": 0.15,
+    "backgroundImageStretchMode": "uniformToFill"
+}
+```
+
+I also have a subtle background image at 15% opacity. It's purely aesthetic, but it makes the terminal feel more like *my* space and less like a default utility window.
+
+**Pro tip from the video:** `Win + [number]` launches the app pinned to that position on your taskbar. My terminal is pinned to position 4, so `Win + 4` opens it instantly.
+
+## Let Copilot CLI Be Your Guide
+
+Here's the part that ties it all together. You don't need to memorize any of the config formats above. Copilot CLI understands shells, terminal emulators, config files, and all the little formats and flags that go with them. Just tell it what you want.
+
+A few ideas to get you started:
+
+- _"My Oh My Posh prompt shows broken characters — what's wrong?"_ — It'll figure out you need a Nerd Font and help you install one.
+- _"I keep running these three git commands in a row. Can you turn that into a single alias?"_ — Describe your workflow and it'll write the function and add it to your profile.
+- _"What are some CLI tools I haven't heard of that could speed up my workflow?"_ — Throw this into research mode and see what it comes back with. I found some great tools this way.
+- _"Help me set up a keyboard shortcut in Windows Terminal to open a side pane"_ — It'll edit your `settings.json` directly.
+
+The key insight: **Copilot CLI isn't just for writing code — it's for shaping the environment where you write code.**
+
+## The Challenge: Turn a Repetitive Task Into a Command
+
+Here's something I'd encourage you to try. Think about something you do regularly in the terminal — maybe it's a set of commands you run every morning, or something you even find yourself asking Copilot CLI to do over and over.
+
+Now, instead of doing it by hand (or asking Copilot each time), ask Copilot CLI to **write you a script** for it and **alias it to a short command**.
+
+For example: _"I always run git fetch, then check which of my branches have new commits on the remote. Can you write me a function for that and alias it to `gcheck`?"_
+
+Now you have a fast, permanent command instead of a multi-step process or a conversation with an AI. It'll be instant, it won't cost any tokens, and it's yours to keep.
+
+That's basically how every alias in my profile started — I noticed I was repeating something, and I either wrote the shortcut myself or asked Copilot to write it for me.
+
+## Start Small
+
+If any of this feels overwhelming, here's my advice: **pick one thing that annoys you and fix it.**
+
+Maybe it's a command you type out in full every single time. Alias it. Maybe it's that your prompt doesn't show which Git branch you're on. Install Oh My Posh. Maybe it's that you can never remember the exact flags for a command. Ask Copilot CLI.
+
+One small win leads to another. Before you know it, you've got a terminal that feels like *yours* — not just a default window you tolerate.
+
+---
+
+> Have questions, or want to share your own terminal setup? Drop a comment on the video or find me on the socials linked below. Happy hacking. 🚀

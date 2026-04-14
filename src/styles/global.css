@@ -131,7 +131,53 @@ pre code {
   font-weight: 700;
 }
 .prose h2 { margin-top: 2.5rem; }
-.prose p { line-height: 1.8; color: var(--color-text-secondary); }
-.prose ul, .prose ol { color: var(--color-text-secondary); }
+.prose p { line-height: 1.8; color: var(--color-text-secondary); margin-bottom: 1.25rem; }
+.prose ul, .prose ol { color: var(--color-text-secondary); margin-bottom: 1.25rem; }
 .prose strong { color: var(--color-text-primary); }
 .prose img { border-radius: 8px; }
+.prose .tldr-box {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.1) 0%, rgba(0, 191, 255, 0.06) 100%);
+  border: 1px solid rgba(168, 85, 247, 0.2);
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 2rem;
+  font-size: 0.95em;
+  line-height: 1.7;
+}
+.prose .tldr-box p {
+  color: var(--color-text-primary);
+  margin-bottom: 0;
+}
+.prose blockquote {
+  border-left: 3px solid var(--color-accent-purple);
+  padding: 0.75rem 1.25rem;
+  margin: 1.5rem 0;
+  background: rgba(168, 85, 247, 0.05);
+  border-radius: 0 8px 8px 0;
+  font-size: 0.92em;
+}
+.prose blockquote p {
+  color: var(--color-text-muted);
+  margin-bottom: 0;
+}
+.prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5rem 0;
+  font-size: 0.92em;
+}
+.prose thead th {
+  color: var(--color-text-primary);
+  font-weight: 600;
+  text-align: left;
+  padding: 0.75rem 1rem;
+  border-bottom: 2px solid rgba(168, 85, 247, 0.25);
+}
+.prose tbody td {
+  color: var(--color-text-secondary);
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.prose tbody tr:hover {
+  background: rgba(168, 85, 247, 0.04);
+}
