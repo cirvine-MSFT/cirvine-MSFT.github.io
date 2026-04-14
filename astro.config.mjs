@@ -5,7 +5,7 @@ import sitemap from '@astrojs/sitemap';
 import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
-  site: 'https://cirvine-msft.github.io',
+  site: 'https://caseyirvine.dev',
   output: 'static',
   integrations: [mdx(), sitemap()],
   vite: {
