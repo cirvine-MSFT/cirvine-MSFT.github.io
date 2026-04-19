@@ -1,0 +1,140 @@
+---
+title: "The Best Open Source Contribution Might Not Be Code Anymore"
+description: "Pull requests used to be the gold standard of open source contribution. But in the age of AI-assisted development, a well-filed issue might be worth more than a PR. Here's what I'm seeing change."
+pubDate: 2026-04-16
+tags: ["Open Source", "AI", "Workflow", "Community"]
+draft: true
+---
+
+<div class="tldr-box">
+
+**TL;DR** — The economics of open source contributions are shifting. Maintainers can now implement changes faster than they can review external PRs — so a well-filed bug report or detailed feature spec often gets shipped quicker than a community pull request. If you want to make a real impact on an open source project, the highest-leverage move might not be forking and coding anymore.
+
+</div>
+
+## Something's Shifting
+
+I've been having the same conversation with a lot of people lately.
+
+It started with colleagues at Microsoft — folks who maintain popular open source projects or contribute heavily to ones used by millions of developers. Then I started hearing it from well-known maintainers in the broader community. The same themes kept coming up:
+
+- **PR volume is up.** More people are submitting pull requests than ever before — partly because AI tools make it easier to generate code and open a PR.
+- **Reviewing those PRs is a growing burden.** Each one requires triage, code review, validation, and often rework. For teams that are already stretched thin, every external PR competes with the team's own roadmap.
+- **Fast-moving projects make it even harder.** Teams using coding agents are iterating so quickly that by the time an external PR gets reviewed, the codebase has often moved on. The PR needs rebasing, reworking, or both — and sometimes neither the contributor nor the maintainer has the appetite for that.
+
+None of this is anyone's fault. The tools got better, more people are contributing, and that's genuinely a good thing. But it's created a situation where **the cost for a maintainer to review an external PR is starting to outweigh the value that PR adds** — especially when the team could implement the same change faster themselves.
+
+## Then It Happened to Me
+
+A couple of weeks ago, I found a bug in an open source project I use regularly. Classic developer instinct kicked in: fork the repo, clone it, dig into the code, find the problem, write a fix. I spent a couple hours on it — not a huge investment, but not nothing either.
+
+By the time I opened the pull request, the file I'd changed had already been modified in `main`. Not just a small conflict — the whole area I'd touched had been refactored. My PR was dead on arrival.
+
+> I wish I could say this was a one-time thing. It wasn't. I've had PRs go stale within *days* of opening them because the codebase moved that fast underneath me.
+
+This used to be rare. Projects would go weeks or months between major changes, and a community PR had time to breathe. But something has shifted. The teams maintaining these projects are moving at a pace that didn't exist a year ago — and community contributions are getting caught in the wake.
+
+## The Math Has Changed
+
+Here's the thing that ties all of this together: the cost-benefit ratio of a community PR has fundamentally shifted.
+
+When a maintainer receives a pull request from someone outside the core team, here's what they actually have to do:
+
+1. **Triage the issue.** Figure out what problem this PR is trying to solve, whether it's already been addressed, and whether it aligns with the project's direction.
+2. **Review the code.** Not just for style or correctness, but for how it fits into the broader architecture. Does it conflict with work in progress? Does it introduce patterns the team is trying to move away from?
+3. **Validate the change.** Run tests, check edge cases, maybe spin up the app and manually verify. Sometimes the maintainer ends up redoing the validation work the contributor already did, because they need to trust it themselves.
+4. **Handle merge conflicts and rework.** If the codebase has moved on (which it increasingly has), the PR needs rebasing, reworking, or both. That rework costs the contributor *and* the maintainer time — and sometimes neither has the appetite for it.
+
+None of these steps are new. What's new is that teams can now implement the same change themselves — often faster than they can review the external PR. With coding agents, a maintainer can take a well-described problem and go from issue to merged PR in a fraction of the time it takes to shepherd an external contribution through review.
+
+## I Felt It on My Own Project
+
+This became real for me from the other side when someone asked if they could contribute to one of my own open source projects.
+
+I thought about it — genuinely thought about it — and realized that what I actually wanted wasn't a pull request. I'd already built up a specific methodology for how I generate and validate code on that project. I had agents tuned to the codebase, custom instructions that produce consistent patterns, and a validation sequence I trust. When a change goes in, I know *exactly* how it was made and how it was tested.
+
+An external PR would mean taking code generated by a different process, with different assumptions, and spending my time figuring out whether it fits — not just functionally, but whether the methodology behind it meets my bar. That review cost would likely exceed the time it would take me to just implement the change myself from a good description of the problem.
+
+So instead of accepting PRs, I encouraged folks to file well-thought-out issues. Bug reports with clear repro steps. Feature requests with real specs. That felt weird at first — like I was closing the door on contributions. But it turned out to be the opposite: I was redirecting contributions to where they'd have the most impact.
+
+## What Maintainers Actually Want
+
+This sounds like bad news for contributors, but I think it's actually the opposite. The shift isn't "stop contributing" — it's "contribute differently."
+
+The pattern I keep seeing — from my own experience, from colleagues, from the community — is this: **a well-filed issue is often worth more than a pull request.**
+
+Here's what a great bug report gives a maintainer:
+
+- A clear description of the problem
+- Exact steps to reproduce it
+- Expected vs. actual behavior
+- Screenshots, logs, environment details
+- Maybe even a guess at which component is involved
+
+That's *incredibly* high-signal input. A maintainer can take that, hand it to their coding agent with the right context and instructions, and ship a fix that's validated, tested, and consistent with the rest of the codebase. They don't have to context-switch into someone else's code. They don't have to figure out whether the contributor's approach is the right one. They already know their own tools and methodologies produce results they trust.
+
+The same goes for feature requests. A feature request with a real spec — what it should do, why it matters, how it could fit into the existing product — gives a maintainer something actionable. It's the kind of input that translates directly into a work item their team (or their agents) can execute on.
+
+> I want to be clear: I'm not saying PRs are unwelcome. Many projects still rely heavily on community PRs, and for some projects they're essential. I'm saying that the *relative value* of a well-filed issue has gone up significantly, and a lot of maintainers are feeling that shift.
+
+## It's Not About the Code Anymore
+
+There's a related shift happening that I think is worth calling out: **we're starting to care less about what the code looks like and more about how it was validated.**
+
+When I review code now — whether it's from a teammate or a community contributor — I'm less interested in reading every line and more interested in the process around it. What tests were run? Was the change validated end-to-end? Was there a clear plan that guided the implementation?
+
+Maintainers are building their own workflows around this. They have validation pipelines they trust, generation processes tuned to their project's conventions, and a clear picture of how changes should be tested before they ship. When an external PR shows up, it arrives from outside that process — with different assumptions and different tooling — and the maintainer has to evaluate not just the code but the entire approach behind it.
+
+This is a weird thing to say out loud, but: **"how was this code made?" is becoming as important as the code itself.** And when a maintainer already has a generation and validation process they trust, the most helpful thing you can give them isn't code — it's the spec.
+
+## What This Means for You (the Contributor)
+
+If you're someone who contributes to open source — or wants to start — this is genuinely good news. Here's why:
+
+**The barrier to meaningful contribution just dropped.** You don't need to clone the repo, set up the build environment, fight with CI, and figure out the project's architecture to make an impact. You need to clearly describe a problem or articulate a feature. That's a different skill set, and in some ways it's more accessible.
+
+**Non-developers can contribute in a real way.** If you're a QA engineer, a designer, a product manager, or just a user who hit a real bug — your detailed issue report is a first-class contribution now. You don't need to know the codebase. You need to know what went wrong and be able to describe it clearly.
+
+**Filing a great issue is a real skill.** It's not a consolation prize. Writing a bug report with clear repro steps, the right level of detail, and enough context for someone else to act on it — that takes thought and care. It's a craft, and it's one that's becoming the primary way many people contribute.
+
+I'll be honest: I still wrestle with this a little. Part of my developer brain wants the commit. The green squares on my GitHub profile. The feeling of "I shipped that fix." Losing that stings a little — it's a win for making the product better, but a loss for my attempts at boosting my rock bottom internet reputation.
+
+But here's the thing: the bugs I've filed with care have been getting accepted and shipped faster than the PRs I've opened. That's hard to argue with.
+
+## The Bigger Question
+
+Here's where I might lose some people, but I think it's worth saying out loud: software engineering was never really about the code. It was about building great software. The code was always just a means to that end.
+
+We review code because humans needed to be able to read it, understand it, and maintain it. That made total sense when humans were the ones doing the reading, understanding, and maintaining. But if we're being honest about where things are heading — humans are going to read and maintain code less and less. Agents are going to do more of that work.
+
+So if we're reviewing code to find bugs, to me that says there's a flaw in how we test and validate, not a reason to keep reading every line. I'd much rather have really good tests that verify the behavior than a human squinting at a diff trying to spot a logic error.
+
+And if that's true — if humans are stepping back from reading and maintaining code — then PRs and code reviews as we know them start to lose their purpose too. Not overnight. But the trajectory is there.
+
+> This might be a bigger thought than one blog post can contain. But it's the thread that keeps pulling at me: maybe it's not just that PRs aren't how the community contributes anymore. Maybe, as we get further into the AI era, we don't really need code reviews in their current form either. Maybe the PR itself is the thing that's evolving.
+
+## Where This Is Heading
+
+So where does all of this leave us?
+
+The traditional model of open source was: community members contribute code, maintainers review and merge it. The emerging model looks more like: **community members contribute specifications — bug reports, feature requests, use cases — and maintainers turn those into code.**
+
+This could actually *expand* who participates in open source, not shrink it. When the unit of contribution shifts from code to specification, you open the door to people who have deep domain knowledge but don't write code. The product manager who knows exactly what workflow is broken. The support engineer who sees the same bug reported fifty times. The accessibility expert who can spec out exactly what needs to change.
+
+And if we follow the thread from "The Bigger Question" — if code reviews and PRs themselves are evolving — then maybe the pull request of the future doesn't contain code at all. Maybe it contains a description of what you want and a validation report from a process the maintainer trusts. We're not there yet. But I think the pieces are falling into place faster than most people expect.
+
+## Try This
+
+If you want to contribute to open source — or you've been thinking about it but the idea of navigating someone else's codebase feels overwhelming — I have good news: you can make a real impact without ever opening a PR.
+
+1. **File an incredible issue.** Clear title. Detailed repro steps. Expected vs. actual behavior. Screenshots if they help. Environment details. Put the same care into the issue that you'd put into the code.
+2. **Write a spec for a feature you want.** What should it do? Why does it matter? How could it fit into the existing product? What are the edge cases? Give the maintainer something they can act on immediately.
+3. **See what happens.** You might be surprised how quickly a well-filed issue gets picked up and shipped — sometimes faster than a PR would have been reviewed.
+
+And if you *do* want to open a PR — absolutely do that too. Community PRs are still valuable, and plenty of projects welcome them with open arms. Nothing I've said here should discourage anyone from contributing code. I'm just saying there's another path that's equally impactful, and it's one that more people can walk.
+
+## One More Thing
+
+I'm still getting used to the idea that my best contributions to open source don't show up on my commit graph. My GitHub profile doesn't know about the bugs I've filed that shipped the next day, or the feature specs that turned into real product improvements.
+
+But honestly? The projects I care about are getting better, and I'm part of that. The shape of the contribution changed. The impact didn't.
