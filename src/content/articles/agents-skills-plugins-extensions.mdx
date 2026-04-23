@@ -1,0 +1,275 @@
+---
+title: "Agents, Skills, Plugins & Extensions — Customizing GitHub Copilot"
+description: "There's a whole ecosystem for customizing Copilot — agents, skills, hooks, plugins, and extensions. Here's what each one actually is, where the files go, and how they work together."
+pubDate: 2026-04-22
+tags: ["Copilot CLI", "VS Code", "Developer Tools", "AI", "Customization"]
+draft: false
+youtubeId: "kcH0PzoGKj0"
+---
+
+import YouTubeEmbed from '../../components/YouTubeEmbed.astro';
+
+<div class="tldr-box">
+
+**TL;DR** — GitHub Copilot actually has six main customization primitives: agents, skills, hooks, plugins, extensions, and instruction files. Each one does something different, and no, you don't need to learn all six before breakfast. In this post we're covering five of them — instruction files get their own deep dive later (along with a really cool feature called `/chronicle`). This is the technical reference companion to the video above — I walk through everything live there, and go deeper here with the stuff I fact-checked after hitting record. Oh, and the best part? Copilot can write most of these _for you_, so the barrier to entry is basically "describe what you want in English."
+
+</div>
+
+## Wait, What is that thing?
+
+When I was first getting into agentic engineering (don't say vibe coding), it started off with me asking questions like, "What is an agent?" "Why do I want an agent?" And then the next week I learned about something else. "Wait, what is a skill?" "Is that like a prompt?" "How do I make one and how does my agent use one?" And to a large extent that kind of discovery is still happening regularly for me.
+
+Before we dive in, I should mention: there's actually a sixth customization primitive I'm not covering here — **instruction files** (like `copilot-instructions.md`). Instructions are incredibly powerful for shaping how Copilot behaves in your repo, but they deserve their own deep dive — especially alongside the `/chronicle` command, which ties into them in a really interesting way. We'll get to that in a future post. For now, let's focus on the five you see in the video.
+
+In the companion video above, I walk through each of these live — building them out, showing what they look like in practice, making mistakes in real time (as is tradition). But videos are great for vibes and terrible for reference. I kept wanting a single page I could come back to that laid out what each thing actually _does_, when you'd pick one over the other, and what the gotchas are. This post is that page.
+
+The thing that made it all click for me was realizing I don't have to write most of this stuff by hand. Copilot itself can scaffold agents, generate hooks, wire up extensions — you just tell it what you want. That took it from "overwhelming list of concepts" to "oh, I just need to know what's possible and point Copilot at it." Way more manageable.
+
+One more thing worth knowing up front: these aren't just Copilot CLI features. Agents, skills, hooks, and plugins work across Copilot CLI, VS Code, and the VS Code Agents app. Extensions are currently more CLI-specific, but everything else travels with you. Alright, let's get into it.
+
+## Agents — The Persona
+
+Agents are probably the most intuitive piece of the customization stack. At their core, they're markdown files with YAML frontmatter that define a specialized AI persona — like creating a character sheet for Copilot to play.
+
+In the video I used an OOP analogy: _"If you're trying to think in an object-oriented sense, it's kind of a class. It defines what a role is, what it does."_ I still think that holds up. An agent is a blueprint. It says "when someone invokes you, here's who you are and what you're good at."
+
+Now, I described agents as _"just a persona"_ in the video — and that's a great mental model to start with. But technically they're a bit more than that. Beyond the system prompt, an agent file also controls which model runs and which tools the agent has access to. So it's persona *plus* capabilities.
+
+### What's in an agent file?
+
+The file uses the `*.agent.md` naming convention (but it doesn't have to and in some harnesses being in the agents directory is enough). You can drop them in `.github/agents/` for your whole repo, or `~/.copilot/agents/` for your personal setup. The frontmatter handles the metadata:
+
+```yaml
+---
+name: "My Custom Agent"
+description: "A brief description of what this agent does"
+model: claude-sonnet-4
+tools: [grep, glob, view, powershell]
+---
+```
+
+> Fair warning: not every harness supports every frontmatter field. Something that works perfectly in VS Code might not load in Copilot CLI, or vice versa. If your agent isn't loading, try stripping back the frontmatter to just `name` and `description` and adding fields back one at a time. The harnesses are still converging on a shared spec, so for now just see what works in your setup.
+
+Everything below the frontmatter is the system prompt — plain markdown where you describe the agent's personality, expertise, and instructions. That's where the actual persona lives.
+
+### Real-world examples
+
+I have a `devbox-optimization` agent that helps me troubleshoot and maintain my developer workstations. It knows about my multi-environment setup and can dig into config issues without me re-explaining my whole rig every time.
+
+A cooler example from the VS Code Team Kit: they have a `councillor-gpt.agent.md` — a reviewer agent that's specifically pinned to GPT. That's the model selection piece in action. You can have one agent that always uses Claude for creative writing and another that always uses GPT for code review.
+
+The possibilities are pretty open-ended. Code reviewer, solution architect, personal assistant, even a graphic designer agent that knows your brand guidelines. If you can describe the role in markdown, you can make an agent for it.
+
+### How to use them
+
+In Copilot CLI, the `/agent` command shows you all available agents and lets you switch between them. In VS Code or the Agents app, they show up in the agent picker. Either way, you're just telling Copilot "put on this hat for a while."
+
+> If this feels like a lot, don't worry — you don't need to build agents from scratch to get value from customization. But if you find yourself giving Copilot the same context over and over, that's a good sign you've got an agent waiting to be written.
+
+## Skills — The Action
+
+Skills are where things get _doing_. If agents define the persona and instructions set the personality, skills are the task-specific knowledge packages that tell an agent how to actually accomplish something.
+
+Each skill is a self-contained folder with a `SKILL.md` file — plus optional bundled assets like scripts, templates, or reference docs. They follow the [Agent Skills specification](https://agentskills.io). In the video I called them _"portable prompts"_ and _"small, discrete, repetitive actions."_ That's a decent mental model, but honestly it undersells them. A skill can bundle executable scripts, templates, and reference materials (up to 5MB per file). It's not just a prompt — it's an entire knowledge package.
+
+### Why this matters
+
+Here's the thing I keep coming back to: **skills are transferable across agents.** A PowerPoint-writing skill can be used by your architect agent, your code agent, AND your personal assistant agent. You write it once and every agent that needs it can pick it up. That's the real unlock here — you're not customizing one tool, you're building reusable capabilities.
+
+### How they're structured
+
+The folder convention is straightforward:
+
+- **Repo-level:** `.github/skills/<skill-name>/SKILL.md`
+- **Personal-level:** `~/.copilot/skills/<skill-name>/SKILL.md`
+- Need to reference a bundled template or script? Use the `$SKILL_ROOT` environment variable to point at files in the same folder.
+
+The `SKILL.md` file starts with frontmatter, then the markdown body contains the actual instructions:
+
+```yaml
+---
+name: council-review
+description: 'Multi-model council review for code changes'
+metadata:
+  version: "1.1"
+---
+```
+
+That's it for the metadata. The real substance is in the markdown body — that's where you lay out exactly how the skill should be performed, step by step.
+
+### Some real ones worth checking out
+
+- **`council-review`** from the VS Code Team Kit — this one orchestrates multiple model-pinned agents to independently review code changes, then synthesizes their findings into a consensus. It's wild.
+- **The PowerPoint skill** I mentioned in the video — originally from Anthropic's Claude Code repo. It lets any agent create and edit `.pptx` files. Not something you'd expect a coding agent to do, but that's the beauty of skills.
+- **My AI news skill** — I asked Copilot CLI to write this one live during the video. It searches trusted news sources and filters out the spam. Took about two minutes.
+
+### Using them
+
+There are two ways skills get used, and both are worth knowing about.
+
+**You invoke them directly.** Every skill registers as a slash command in Copilot CLI. So if you've got a PowerPoint skill, you just type `/pptx` and it kicks off. You can pass a prompt along with it too — like `/pptx create a deck summarizing our Q3 roadmap` — or just run it bare if the skill doesn't need additional input. Use `/skills` to see what's available and manage them.
+
+**The agent picks them up on its own.** This is the part that's easy to miss. You don't always have to explicitly invoke a skill — if the agent sees a skill that's relevant to what it's doing, it can just use it. So if you ask your agent to create a presentation and there's a PowerPoint skill loaded, it'll grab that skill and run with it. You don't have to tell it to. It just knows it's there.
+
+> Skills are probably the layer I'd recommend starting with if you want to customize one thing. Find a repetitive task, write a `SKILL.md`, and let the agent handle it from there.
+
+## Hooks — The Trigger
+
+So agents do work, skills provide knowledge — but what kicks things off automatically? That's where hooks come in. Hooks are event-driven automation that fires when specific things happen during a Copilot session. When an event occurs, a hook can inject instructions, block operations, or run custom actions.
+
+I didn't go super deep on hooks in the video, but I want to at least lay out what's available because this is where it gets interesting. Here are the hook events you can tap into:
+
+| Event | When It Fires |
+|---|---|
+| `SessionStart` / `Stop` | Session lifecycle — beginning and end |
+| `UserPromptSubmit` | When you send a prompt |
+| `PreToolUse` / `PostToolUse` | Before and after tool execution |
+| `PreCompact` | Before context compaction |
+| `SubagentStart` / `SubagentStop` | When sub-agents spin up or finish |
+
+> Hooks are one of those things that sound simple but can get surprisingly powerful. A `preToolUse` hook that blocks `git push --force`? That's basically a safety net for your entire team.
+
+The example I showed in the video was from the VS Code Team Kit — they have a hook that injects a reminder to run the review-plan skill whenever a plan file gets written. I thought that was really cool, and it is. It's essentially continuous review baked into the workflow without anyone having to remember to do it.
+
+Another use case I mentioned: re-injecting important instructions after context compaction. If you're running a long session and you're worried the agent might "forget" critical rules as older context gets compressed, a hook can re-inject those rules at key moments. Think of it as a gentle nudge — _"hey, don't forget about this."_
+
+Hooks live in `.github/hooks/` at the repo level or `~/.copilot/hooks/` for personal hooks, right alongside your other customization files.
+
+## Plugins — The Bundle
+
+So we've got agents, skills, and hooks — three different ways to customize Copilot. But here's the thing: you don't have to think about them in isolation. Plugins bundle all of them together into one installable package, organized around a specific workflow. They're the distribution mechanism — how you actually share and install customizations as a unit.
+
+Take the model-council plugin as an example. It doesn't just give you one agent — it bundles three model-pinned agents *and* two orchestrator skills that coordinate them. Install one plugin, get a whole workflow. That's the key insight here.
+
+### Marketplaces
+
+Plugins live in marketplaces, which are just GitHub repos that host a collection of plugins. Out of the box you get two:
+
+| Marketplace | What's in it |
+|---|---|
+| `copilot-plugins` | Official plugins from GitHub |
+| `github/awesome-copilot` | Community-contributed plugins |
+
+And you can add any GitHub repo as a marketplace. The repo just needs a `marketplace.json` at the root that lists available plugins, and each plugin has a `plugin.json` manifest describing what it bundles.
+
+Here are the CLI commands you'll use most:
+
+- `/plugin marketplace add microsoft/vscode-team-kit` — add a new marketplace
+- `/plugin marketplace browse vscode-team-kit` — see what's available in it
+- `/plugin install model-council@vscode-team-kit` — install a specific plugin
+- `/plugin list` — see what you've got installed
+
+Pretty straightforward. And if you're more of a GUI person, the Agents app in VS Code has a full UI for browsing and installing plugins from marketplaces too — same ecosystem, different interface.
+
+### A Quick Honest Moment
+
+I'll be upfront: the demo gods cursed me during the video. I ran into some issues where agents weren't loading properly after a CLI plugin install. The plugin ecosystem is still evolving, and there are some rough edges — especially around how CLI and VS Code plugin support interact. Nothing that made me want to throw my laptop, but worth knowing going in. If something doesn't work on the first try, give it a reload. It's getting better fast.
+
+## Extensions — The Program
+
+Alright, now we're in the deep end. Extensions are full Node.js programs built on the Copilot SDK (`@github/copilot-sdk`). They can define custom tools the agent calls, hook into session lifecycle events, send data back into your session, even launch UI experiences. Someone showed me an extension that launches a snake game while you wait for the agent to finish its turn. I respect that energy.
+
+This is the most powerful customization primitive — and the most technical. But don't let that scare you off.
+
+**One important distinction:** extensions are _not_ part of the plugin ecosystem. You can't install them via plugins, at least not yet. They're their own thing entirely.
+
+### File conventions
+
+Extensions live in a folder with an `extension.mjs` entry point (ES module — the `.mjs` is required, and note the singular "extension"):
+
+- **Repo-level:** `.github/extensions/<extension-name>/extension.mjs`
+- **Personal-level:** `~/.copilot/extensions/<extension-name>/extension.mjs`
+
+You can include a `package.json` if you need npm dependencies. It's a real Node project.
+
+### What I actually built
+
+My ADO Build Watcher extension watches long-running Azure DevOps builds. When a build finishes, it sends a follow-up prompt back into the session so the agent picks up where it left off — maybe running tests against the build artifacts, maybe kicking off another build. I use this every single day at work. It turns Copilot CLI from "a thing I type at" into something that's genuinely orchestrating my workflow.
+
+> I didn't write a single line of the Build Watcher extension. I described what I wanted to Copilot CLI, went through a few planning iterations, and it wrote the whole thing. This is true for agents and skills too, but it's especially wild for extensions since they're actual programs with real logic.
+
+### The docs situation
+
+I asked the Copilot CLI team about extension documentation and they basically said _"it's the Copilot SDK — there's tons of docs on that."_ Fair enough. Once you know the `extension.mjs` entry point pattern and the SDK, you've got what you need.
+
+One nice quality-of-life thing: extensions can be hot-reloaded without restarting Copilot CLI. Huge for development. You make a change, reload, and test — no context lost.
+
+### Resources
+
+- [Hector Flores' Extensions Cookbook](https://htek.dev/articles/copilot-cli-extensions-cookbook-examples) — great blog series with real examples
+- [My Copilot Toolkit repo](https://github.com/cirvine-MSFT/copilot-toolkit) — includes the Build Watcher and other extensions I use daily
+
+If you've made it this far and you're thinking "this seems like a lot" — just remember, the agent will write most of it for you. You just need to know what to ask for.
+
+## The Cheat Sheet
+
+Here's everything in one place — bookmark this and come back to it.
+
+| Primitive | What It Is | Repo Location | Personal Location | Key File |
+|-----------|-----------|---------------|-------------------|----------|
+| **Agent** | AI persona with model + tools | `.github/agents/` | `~/.copilot/agents/` | `*.agent.md` |
+| **Skill** | Reusable task package | `.github/skills/` | `~/.copilot/skills/` | `SKILL.md` |
+| **Hook** | Event-driven trigger | `.github/hooks/` | `~/.copilot/hooks/` | config in folder |
+| **Plugin** | Bundle of agents + skills + hooks | in plugin folder | _(installed via CLI)_ | `plugin.json` |
+| **Extension** | Full Node.js program | `.github/extensions/` | `~/.copilot/extensions/` | `extension.mjs` |
+
+## The VS Code Team Kit — A Real-World Example
+
+Theory is great, but let's look at something real. The VS Code team open-sourced the AI tooling they use to manage their own massive, wildly popular repository. You can find it at [microsoft/vscode-team-kit](https://github.com/microsoft/vscode-team-kit), and it's one of the best examples of this plugin ecosystem in action — real plugins, built by a real team, solving real problems at serious scale.
+
+Here are three that stood out to me:
+
+**model-council** — This one runs the same code review through three different AI models (GPT, Claude Opus, Gemini) independently, then synthesizes the results into consensus findings. Each finding gets classified as "consensus" (all models agree), "single-reviewer" (strong evidence from one model), or "contested" (disagreement). There's even an optional debate round for contested findings. Honestly, this is one of the coolest ideas I've seen in this space.
+
+**ban-ast** — Uses Tree-Sitter AST queries to enforce code patterns. Want to ban `eval()` in your codebase? No `console.log()` in production code? No `any` types in TypeScript? This plugin catches those at the agent level before they even get committed. It's like a linter that the AI actually listens to.
+
+**github-inbox** — Six specialized agents and thirteen skills for triaging GitHub notifications. It has an investigator agent, a reviewer, a triager, a memory keeper, and a summarizer. It's like having a whole team of assistants managing your notification inbox so you don't drown in it.
+
+> These are just three of the plugins in the kit — there are more worth exploring once you get the hang of how plugins work.
+
+Want to try it? You can add it as a marketplace and browse individual plugins:
+
+```
+/plugin marketplace add microsoft/vscode-team-kit
+```
+
+From there you can pick and choose whichever plugins make sense for your workflow. You don't have to install everything — just grab what's useful.
+
+## You Don't Have to Write Any of This Yourself
+
+Here's probably the biggest "aha moment" my team and I had while exploring all of this: **you don't actually have to write any of it yourself.** The custom instructions, the agents, the skills — you can just describe what you want to the general Copilot agent and let it do the work.
+
+In the video, I literally asked Copilot CLI to write me a skill for pulling AI news from trusted sources. It went off, built the whole thing, and dropped it into my personal skills directory. Done. I didn't write a single line of that skill — I just told it what I wanted and iterated on the result.
+
+Extensions are where this gets really impressive. I mentioned the ADO Build Watcher earlier — that whole thing was written by Copilot CLI after I described what I wanted and iterated on the plan. An AI tool writing its own tools. Kind of meta, kind of awesome.
+
+If you want to take multi-agent orchestration even further, check out Brady Gaster's [Squad](https://github.com/bradygaster/squad) — it's a framework for creating persistent, multi-agent teams that live in your repository. Really cool if you're building more structured agent workflows.
+
+One more thing worth knowing: agents and skills don't have to be personal. You can put them at the repo level (`.github/agents/`, `skills/`) so your whole team benefits, or keep them in `~/.copilot/` if they're just for you. Mix and match however it makes sense.
+
+## Your Turn
+
+Pick **one thing** from this post and try it today. Seriously, just one.
+
+Maybe write a custom agent prompt for your project — even a simple one that just knows your tech stack and conventions. Or browse the [Awesome Copilot](https://github.com/github/awesome-copilot) marketplace or the Agents app and install a plugin that catches your eye. Or honestly? Just ask Copilot to write you a skill for something you do all the time. You might be surprised how well it works on the first try.
+
+Start small, see what clicks. You can always layer on more later.
+
+---
+
+Look — this whole ecosystem is moving fast, and I'm still very much making it up as I go along. But that's kind of what makes it fun right now. There's a real sense of _"what if I tried this?"_ every time I sit down with these tools, and more often than not, it actually works.
+
+And if you're wondering about instruction files and the `/chronicle` command — that's coming. Instructions are how you teach Copilot your repo's conventions, and Chronicle is how those instructions can evolve over time. It's a whole thing. Stay tuned.
+
+Happy vibe coding. 🤙
+
+## Resources
+
+| Resource | Link |
+|----------|------|
+| VS Code Team Kit | [github.com/microsoft/vscode-team-kit](https://github.com/microsoft/vscode-team-kit) |
+| GitHub Awesome Copilot | [github.com/github/awesome-copilot](https://github.com/github/awesome-copilot) |
+| Agent Skills Spec | [agentskills.io](https://agentskills.io) |
+| Brady Gaster's Squad | [github.com/bradygaster/squad](https://github.com/bradygaster/squad) |
+| Copilot CLI Extensions Cookbook | [htek.dev](https://htek.dev/articles/copilot-cli-extensions-cookbook-examples) |
+| Casey's Copilot Toolkit | [github.com/cirvine-MSFT/copilot-toolkit](https://github.com/cirvine-MSFT/copilot-toolkit) |
