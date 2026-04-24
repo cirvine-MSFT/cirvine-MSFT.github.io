@@ -1,0 +1,243 @@
+---
+title: "Instruction Files & /chronicle — Teaching Copilot Your Codebase"
+description: "Instruction files are how you teach Copilot your project's conventions, and /chronicle is how those instructions evolve over time. Here's the deep dive I promised."
+pubDate: 2026-04-23
+tags: ["Copilot CLI", "Developer Tools", "AI", "Customization"]
+draft: false
+youtubeId: "DSxNJ8J01Fo"
+---
+
+<div class="tldr-box">
+
+**TL;DR** — Instruction files are the sixth Copilot customization primitive — the one I teased in [the last post](/articles/agents-skills-plugins-extensions). They live at three levels (personal, repo-wide, and path-scoped) and teach Copilot your project's conventions without replacing your documentation. But the real star is `/chronicle improve`, which mines your past Copilot sessions and automatically evolves your instruction files based on what went well and what didn't. It's memory without building a memory system.
+
+</div>
+
+## The Sixth Primitive
+
+In the [last post](/articles/agents-skills-plugins-extensions), I walked through five of the six customization primitives for GitHub Copilot — agents, skills, hooks, plugins, and extensions. I specifically called out that I was saving instruction files for their own deep dive, _"especially alongside the `/chronicle` command, which ties into them in a really interesting way."_
+
+This is that deep dive.
+
+And honestly, I think instruction files might be the most impactful customization you can make — not because they're complicated, but because they're so simple. A markdown file in the right place, with a few paragraphs about your project, and suddenly Copilot stops asking you things you've already explained. It just... knows.
+
+But what really surprised me is what happens when you combine instruction files with `/chronicle`. That's when it stops being a static configuration file and starts being something that learns.
+
+## What Are Instruction Files?
+
+At the most basic level, instruction files are markdown files that give Copilot additional context. They're loaded automatically into every conversation — you don't have to reference them or remember to paste anything. They quietly sit there, making every interaction a little smarter.
+
+The [official documentation](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-custom-instructions) covers the full spec, but here's the mental model: instruction files are the difference between handing someone a project's README and having a team member walk them through the codebase on their first day. Both convey information, but one has context about _how things actually work around here._
+
+There are three levels, and they stack:
+
+| Level | Location | Scope |
+|-------|----------|-------|
+| **Personal** | `~/.copilot/copilot-instructions.md` | Every session, every repo |
+| **Repo-wide** | `.github/copilot-instructions.md` | All work in this repo |
+| **Path-scoped** | `.github/instructions/NAME.instructions.md` | Files matching a glob pattern |
+
+When multiple levels apply, Copilot uses all of them. Your personal preferences layer on top of your repo conventions, which layer on top of path-specific rules. Just avoid conflicting instructions across levels — Copilot's choice between conflicting instructions is non-deterministic, so keep them complementary.
+
+## Your Personal Instructions
+
+Let's start with the most personal level. Your home directory can contain a file at `~/.copilot/copilot-instructions.md` that applies to every Copilot session, regardless of which repo you're in.
+
+In the video I showed mine, and it's pretty minimal. It covers things like:
+
+- **Output preferences** — how I want responses formatted, how terse or detailed
+- **Working style** — bias toward action, minimize manual steps, run commands proactively
+- **AI disclosure** — whenever Copilot posts on my behalf (PR comments, Teams messages, etc.), it prefixes the response with a note that it's an AI acting on my behalf
+
+That last one is something I feel strongly about. Copilot regularly acts with my permissions — responding to PR threads, sending messages, updating work items. Anyone reading those responses should know it's AI, not me typing. A simple prefix handles that.
+
+Your personal instruction file can be as small as you want. Even just _"be concise and use code examples"_ is a meaningful improvement. The key is that it captures preferences that are about _you_, not about any specific project.
+
+## The Repo-Wide Instruction File
+
+This is where things get really interesting for teams. The file at `.github/copilot-instructions.md` applies to everyone working in the repository — every Copilot session, every agent, every sub-agent that touches the codebase.
+
+I love looking at how the [VS Code team](https://github.com/microsoft/vscode/blob/main/.github/copilot-instructions.md) handles this, because they're running one of the most active open source projects in the world and they've clearly put thought into it. Their instruction file includes:
+
+- **Project overview** — what VS Code is built with (TypeScript, Electron, web APIs)
+- **Architecture layout** — where to find things (`src/vs/base/` for foundations, `src/vs/workbench/` for the main app, `extensions/` for built-ins)
+- **Build and validation steps** — how to compile, how to run tests, what to check before declaring work complete
+- **Coding conventions** — tabs not spaces, naming patterns, import rules, disposable patterns
+
+But here's the thing I want to emphasize: **their instruction file is a pointer, not a replacement for documentation.** It doesn't try to be the complete architecture guide. It says _"here's the lay of the land"_ and _"here's where to find the details."_ It's giving Copilot just enough context to navigate the project efficiently and know where to look for more.
+
+> I feel pretty strongly about this too. Your instruction files shouldn't replace your repo documentation. Document your repo for agents, for humans, for anything that might come along. Instruction files are just helpful pointers — hints to help Copilot discover that documentation and navigate your project more efficiently.
+
+If you just use your instruction file to point to your existing documentation, that's already a huge win. You don't have to go crazy with these things to get a lot of value.
+
+### AGENTS.md — The Emerging Standard
+
+While we're talking about repo-level instructions, there's another file worth knowing about: `AGENTS.md`. This is part of an [emerging open standard](https://agents.md) for giving context to AI coding agents — think of it as a README specifically for agents.
+
+Copilot CLI supports `AGENTS.md` alongside `copilot-instructions.md`. If both exist at the root of your repo, instructions from both files are used. The `AGENTS.md` format is more portable — other agent harnesses are starting to honor it too, so your investment in writing good agent instructions pays off across tools, not just within Copilot.
+
+Copilot CLI also recognizes `CLAUDE.md` and `GEMINI.md` files at the repo root. If you're already using those for other tools, Copilot picks them up automatically. Here's the full list of instruction file locations Copilot CLI checks:
+
+- `CLAUDE.md`
+- `GEMINI.md`
+- `AGENTS.md` (in git root and current working directory)
+- `.github/instructions/**/*.instructions.md` (in git root and current working directory)
+- `.github/copilot-instructions.md`
+- `$HOME/.copilot/copilot-instructions.md`
+- Any directories specified in the `COPILOT_CUSTOM_INSTRUCTIONS_DIRS` environment variable
+
+## Path-Scoped Instructions
+
+This is where instruction files get surgical. Inside `.github/instructions/`, you can create files named `NAME.instructions.md` that only apply when Copilot is working on files that match a specific path pattern.
+
+The key is the `applyTo` field in the frontmatter, which takes [glob patterns](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-custom-instructions#creating-path-specific-custom-instructions):
+
+```yaml
+---
+applyTo: "src/backend/**/*.py"
+---
+
+# Backend Python Conventions
+
+- Use FastAPI for all new endpoints
+- Follow the error handling pattern in `src/backend/errors.py`
+- All new endpoints need integration tests in `tests/integration/`
+- Run `pytest tests/integration/ -x` to validate changes
+```
+
+You can scope to multiple patterns in a single file:
+
+```yaml
+---
+applyTo: "**/*.ts,**/*.tsx"
+---
+
+# TypeScript Conventions
+
+- Use strict mode
+- Prefer interfaces over type aliases for object shapes
+- All exports should have JSDoc comments
+```
+
+This is great for repos that span multiple languages or have different conventions in different parts of the codebase. Maybe your frontend uses one testing framework and your backend uses another. Maybe you have specific security requirements for your API layer but not for your build scripts. Path-scoped instructions let you encode all of that without cluttering the repo-wide file.
+
+There's also an optional `excludeAgent` field if you want certain Copilot surfaces to skip these instructions. For example, `excludeAgent: "code-review"` means the instructions apply during development but not during [Copilot code review](https://docs.github.com/en/copilot/tutorials/use-custom-instructions). This is handy when you have instructions that are specifically about how to write code, not how to review it.
+
+## Copilot CLI Tooling
+
+Alright, enough staring at files in repos — let's see what Copilot CLI gives us to work with these.
+
+### /instructions — See What's Loaded
+
+The `/instructions` command shows you every instruction file that's currently active in your session, organized by level:
+
+- **Home** — your personal `~/.copilot/copilot-instructions.md`
+- **Repository** — the `.github/copilot-instructions.md` and any `AGENTS.md` files
+- **Path-scoped** — all the `.github/instructions/*.instructions.md` files
+
+What's really useful is that you can **toggle individual instruction files on and off** for the current session. Maybe you're debugging something weird and you want to see how Copilot behaves without a particular set of instructions. Just toggle it off, test, toggle it back on. No file editing, no stashing changes.
+
+In the video I showed this running in my fork of the VS Code repo, and you can see just how many instruction files a well-configured project has. It's a nice reality check — _"oh, this is what 'well-instrumented' looks like."_
+
+### /init — Bootstrap from Scratch
+
+If you're starting fresh or you have a repo without instruction files, the `/init` command is your friend. It analyzes your repository and generates a sensible starting `copilot-instructions.md` file.
+
+In the video I demoed this on an empty repo (which wasn't the most exciting demo since there was nothing to analyze). But on a real project with code, tests, and documentation already in place, `/init` scans the codebase and produces an instruction file that captures the project's structure, conventions, and key patterns. It's a great way to bootstrap — you'll probably want to edit the output, but it gives you a solid starting point rather than a blank page.
+
+This is consistent with a theme I keep coming back to: **you don't have to write most of this stuff by hand.** Tell Copilot what you want, and let it generate the scaffolding. You're the boss.
+
+## The Memory Sidebar
+
+Okay, I'm going to take what feels like a sidebar here, but I promise it ties back to instruction files in a really satisfying way.
+
+Let's talk about **memory**.
+
+Way back — maybe six or seven months ago, before I was deep into agentic workflows — I started experimenting with giving the LLM a scratch space. I'd create a `.notes/` folder in my project and tell it: _"This is your folder. Dump whatever you want in here."_ Part curiosity, part practical — I wanted to see what it would save, and I wanted it to have a place to remember things across conversations.
+
+It actually helped. Not dramatically, but enough that I kept doing it. Then as I got deeper into running my own agent orchestration loops, I evolved this into more structured markdown-based memory — having the agent learn about the project, record its mistakes, keep running notes on what it discovered.
+
+[Brady Gaster's Squad project](https://github.com/bradygaster/squad) takes a similar approach — it's an open-source framework for orchestrating AI agent teams, and the agents produce logs that get processed and organized into different layers of memory. It's a really cool system if you want to go deep on structured agent memory.
+
+But somewhere along the way, I took a step back and realized something: **the harness I'm already using has memory. I just wasn't thinking of it that way.**
+
+Every Copilot session captures what happened — the questions you asked, the code that was generated, the mistakes that were made, the corrections that followed. That session data is a treasure trove. It's not labeled "memory," but it absolutely is. It's a record of everything the agent did, and more importantly, everything it got wrong and how it recovered.
+
+You can even just ask Copilot to look through its own session data and tell you what it's learned. But the Copilot CLI team built something much better.
+
+## Chronicle: Memory You Didn't Know You Had
+
+Every Copilot CLI session gets recorded locally — your prompts, responses, tools used, files modified — all stored in `~/.copilot/session-state/` with a SQLite index for fast lookups. Over time, that builds up a rich history of what you've worked on and how. The [`/chronicle`](https://docs.github.com/en/copilot/how-tos/copilot-cli/chronicle) command turns that history into actionable insights.
+
+> **Note:** `/chronicle` is currently an experimental feature. You'll need to enable it with `/experimental on` or by launching with `copilot --experimental`.
+
+It has four sub-commands:
+
+| Command | What It Does |
+|---------|-------------|
+| `/chronicle standup` | Summarizes what you've been working on — great for actual standups or just remembering what you did yesterday |
+| `/chronicle tips` | Analyzes your sessions and provides 3–5 personalized recommendations for using Copilot more effectively |
+| `/chronicle improve` | **The star of the show** — analyzes friction in your sessions and updates your instruction files to prevent recurring issues |
+| `/chronicle reindex` | Rebuilds the session store index from your session history files |
+
+Each sub-command can be customized with additional context. For example, `/chronicle standup for the last 3 days` changes the time window, and `/chronicle tips for better prompting` focuses the recommendations on a specific area.
+
+And here's a bonus: you don't even need to use `/chronicle` to tap into your session history. You can just ask Copilot free-form questions like _"Have I worked on anything related to authentication?"_ or _"What type of tasks give me one-shot successes vs. ones I iterate on?"_ and it'll search your sessions to answer. The session store makes your entire coding history queryable.
+
+### /chronicle improve — The Feedback Loop
+
+This is the one I'm most excited about, and it's the reason instruction files and chronicle share a post.
+
+`/chronicle improve` does a deep dive into your session history, specifically looking for **friction signals** — repeated test failures, build errors that required multiple attempts, user messages that corrected or redirected the agent, and patterns that recur across sessions. Based on what it finds, it presents 3–5 specific recommendations, each explaining the problem it identified and the instruction that would address it.
+
+For example, maybe Copilot keeps trying to use `jest` when your project uses `vitest`, or it generates imports in a style that doesn't match your codebase conventions. `/chronicle improve` catches those patterns and writes the instructions that prevent them.
+
+What's nice about the UX is that it doesn't just silently edit your files. It presents its recommendations and lets you toggle each one on or off before applying. You stay in control of what goes into your instruction files.
+
+> Unlike the other `/chronicle` sub-commands (which can draw from all your sessions), `improve` is scoped to the current repository or working directory. This keeps the recommendations relevant to the project you're actually working on.
+
+Think about what that means as a workflow:
+
+1. You work in your repo for a while, making corrections when Copilot gets something wrong
+2. You run `/chronicle improve`
+3. Your instruction files now include guidance that prevents those same mistakes next time
+4. Future sessions are better because of it
+5. Repeat
+
+That's a feedback loop. Your instruction files aren't static config anymore — they're a living document that evolves based on how you actually use the tool. And it's clever because it uses the thing that was already there (session data) to improve the thing that was already there (instruction files). No external memory system. No markdown files to manage. No custom orchestration. Just two built-in features working together.
+
+When I was building my own `.notes/` memory system, this is exactly the outcome I was chasing. The difference is that `/chronicle improve` comes for free with the harness.
+
+## Tools & Resources
+
+| Resource | Link |
+|----------|------|
+| **Custom Instructions Docs** | [GitHub Docs](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-custom-instructions) |
+| **Chronicle How-To** | [Using CLI Session Data](https://docs.github.com/en/copilot/how-tos/copilot-cli/chronicle) |
+| **Chronicle Deep Dive** | [About CLI Session Data](https://docs.github.com/en/copilot/concepts/agents/copilot-cli/chronicle) |
+| **AGENTS.md Standard** | [agents.md](https://agents.md) |
+| **VS Code Instruction Files** | [VS Code repo on GitHub](https://github.com/microsoft/vscode/blob/main/.github/copilot-instructions.md) |
+| **Brady Gaster's Squad** | [Squad on GitHub](https://github.com/bradygaster/squad) |
+| **Copilot CLI** | [Getting Started](https://docs.github.com/copilot/concepts/agents/about-copilot-cli) |
+| **Previous Post** | [Agents, Skills, Plugins & Extensions](/articles/agents-skills-plugins-extensions) |
+
+## Your Turn
+
+Here's what I'd challenge you to try:
+
+1. **Run `/instructions`** in your next Copilot CLI session. Just see what's already loaded. You might be surprised.
+2. **Try `/init`** on a repo that doesn't have instruction files yet. Review what it generates, tweak it, commit it.
+3. **Start small.** Even just a few lines pointing to your project's README and test commands makes a real difference.
+4. **After a few sessions, run `/chronicle improve`.** See what it suggests. The first time it catches a real pattern from your session history, you'll be hooked.
+
+You don't have to nail your instruction files on the first try. That's literally the point of chronicle — it helps you iterate. Start rough and let the feedback loop do its thing.
+
+## The Instructions Will Find You
+
+When I first started experimenting with giving LLMs memory, I thought the answer was building something elaborate — structured markdown files, processing pipelines, memory hierarchies. And those approaches work. But for most of us, the answer is simpler: write a few paragraphs about your project, drop them in the right place, and let the tools that already exist handle the rest.
+
+Instruction files are the bridge between _"Copilot is useful but keeps asking the same questions"_ and _"Copilot just gets it."_ Chronicle is how that bridge gets stronger over time without you having to maintain it.
+
+Start with pointers. Let chronicle iterate. Your instructions will get better on their own.
+
+Happy vibing. ✌️
