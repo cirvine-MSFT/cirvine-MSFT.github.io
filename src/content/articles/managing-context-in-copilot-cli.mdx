@@ -1,0 +1,296 @@
+---
+title: "Context Is King — Managing Your Token Budget in Copilot CLI"
+description: "Context is the invisible budget behind every Copilot CLI session. Here's what fills it, why it matters, and the tools for keeping your sessions sharp."
+pubDate: 2026-04-25
+tags: ["Copilot CLI", "Developer Tools", "AI", "Context Management"]
+draft: true
+youtubeId: "7YqrR73Iul4"
+---
+
+<div class="tldr-box">
+
+**TL;DR** — Context is your AI agent's undertstanding of the world — and it's finite. Everything competes for space: your prompts, tool schemas, MCP servers, instruction files, conversation history, file contents, and sub-agent results. This post covers what the context window actually is, what happens when it fills up (context rot and context poisoning), and the practical tools for keeping sessions sharp: `/compact`, `/context`, `/rewind`, sub-agents, fleet mode, model switching, and instruction scoping. Think of it as the care and feeding of your AI session.
+
+</div>
+
+## "Context Is King" — But What Does That Actually Mean?
+
+"Context is king." I hear it all the time, and I say it all the time. But I want to unpack what it means — and more importantly, what you can actually *do* about it once you understand why context is so important.
+
+This is the third post in my Copilot CLI series (after [agents, skills, plugins & extensions](/articles/agents-skills-plugins-extensions) and [instruction files & /chronicle](/articles/instruction-files-and-chronicle)). If the first two posts were about *customizing* Copilot, this one is about *operating* it. Because it turns out that understanding context — what it is, how it fills up, and how to manage it — is the difference between constantly needing to correct your agents or be frustrated with the results and letting them cook.
+
+In the companion video, I walk through most of this with a live demo. But like the previous posts, the blog goes deeper.
+
+## What Even Is the Context Window?
+
+Your context window is the AI's working memory. It's everything the model can see at once when it processes your prompt. And it's finite — measured in tokens, not lines or files.
+
+Here's what's competing for space in that window:
+
+- **System prompt** — Copilot CLI's built-in instructions for the agent
+- **Instruction files** — your personal, repo-wide, and path-scoped instructions
+- **Tool definitions** — every tool the agent has access to, including MCP server schemas
+- **Conversation history** — every prompt you've sent and every response you've received
+- **File contents** — anything you've referenced with `@file` or the agent has read
+- **Sub-agent results** — summaries returned from delegated work
+
+The key insight: **you're sharing this space with a lot of stuff that isn't your conversation.** Before you've typed a single word, a meaningful chunk of your context is already spoken for.
+
+### Seeing What's in There
+
+The [`/context`](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-command-reference) command gives you a visual breakdown of your token usage — a little bar chart showing what's eating your context budget and how much headroom you have left. I run this constantly. In the video I showed it right after planning (about 25% full) and again after execution (about 33%). It's the simplest way to build intuition for how context fills up.
+
+The [`/usage`](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-command-reference) command is its companion — it shows session-level statistics including token consumption per model. Together, they give you a pretty clear picture of where your budget is going.
+
+### Not All Tokens Are Equal
+
+Something I touched on in the video but want to go deeper on here: **the model you pick and its reasoning level directly affect how fast context fills up.**
+
+Higher-reasoning models like Opus produce more verbose internal dialogue — extended thinking, deeper analysis, chain-of-thought reasoning. That means more tokens consumed per turn, both for the model's thinking and its output. Even when you toggle reasoning visibility off with `Ctrl+T`, those reasoning tokens are still part of the conversation and consume context.
+
+Practically speaking, an Opus response to "analyze this code" might consume 3-4x the tokens of a Haiku response to the same prompt. Over a long session, that difference compounds — you may hit compaction triggers way faster with heavier models, although larger models usually make up for this with larger context windows.
+
+This is one of the reasons the "plan with a smarter model, execute with a cheaper one" pattern works so well. More on that in a bit.
+
+> **Context windows differ by model, too.** Claude Haiku 4.5 has a 200k token context window, while Sonnet and Opus work with up to 1M tokens. So not only does a lighter model consume less context per turn — it also has less total context to work with. Keep that in mind when delegating to sub-agents, which often default to lighter models like Haiku.
+
+## When Context Goes Wrong
+
+So you know what context is and you can see how full yours is. But the amount isn't the only thing that matters — *what's in there* matters just as much. There are two failure modes I think about.
+
+### Context Rot
+
+Context rot is the gradual degradation of session quality as your context fills up. Early instructions get "diluted" by newer, more voluminous content. The model starts forgetting things you told it twenty minutes ago.
+
+In the video I used an analogy that I think really captures this:
+
+Imagine you and your coworkers go into a meeting to decide the name of your new product. You record it — because of course you do, you want your agents to reason over it later. There's a pretty heated discussion. At one point you think you've picked a name, but then someone points out it's already taken, so you start over. Eventually you land on something everyone agrees on.
+
+Your boss asks: "Hey, what did you decide?" And you hand them the meeting transcript.
+
+They're going to skim it. And in that transcript, there's all this back-and-forth — early consensus on a name that got rejected, counterarguments, tangents. The fine details of *why* you landed where you did are buried in the noise. Your boss might latch onto the rejected name from page two instead of the final decision on page ten.
+
+**That's basically what's happening inside your agent's context.** The more conversation history piles up, the harder it is for the model to pick out what actually matters. You might tell it "don't write any code" early on, and then later — once the context is packed with other stuff — it starts writing code anyway. That early instruction is still *there*, it just got lost in the crowd.
+
+It's the difference between giving someone a summary of a book versus making them read the whole thing and then quizzing them on chapter one. Different models handle this differently, but the longer the context, the more you're betting on the model's ability to separate signal from noise. In short, more context is not always better.
+
+### Context Poisoning
+
+Context poisoning is when incorrect, misleading, or conflicting information gets into your context. And unlike rot, it doesn't need a lot of content — it just takes one bad piece.
+
+I've seen this happen plenty of times: the model comes to a wrong conclusion, I correct it, and later it falls back to the wrong conclusion anyway. That original (incorrect) reasoning is still sitting right there in the context window, and sometimes the model gravitates back to it instead of my correction. It's like the wrong answer has its own gravity.
+
+The nastier version: if poisoned context gets compacted (summarized), the bad information gets "baked in" to the summary. Now it's not just one turn you can rewind past — it's part of the foundation of what the agent "knows." That's much harder to fix without starting fresh.
+
+> Models are improving at handling conflicting information all the time, especially with help from the harness (Copilot CLI itself manages a lot of this). But context rot and poisoning are still very real — and they're the primary reasons you want to be intentional about managing context rather than just letting sessions run forever.
+
+## The Context Management Toolkit
+
+Here are the commands you'll actually use. I keep this table mentally bookmarked.
+
+| Command | What It Does | When to Use |
+|---------|-------------|-------------|
+| [`/context`](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-command-reference) | Visual token usage breakdown | Check how full you are |
+| [`/compact`](https://docs.github.com/en/copilot/concepts/agents/copilot-cli/context-management) | Summarize conversation history, free space, create checkpoint | Before execution phase, when context is heavy |
+| [`/rewind`](https://docs.github.com/en/copilot/how-tos/copilot-cli/roll-back-changes) / `/undo` / double-Esc | Open rewind picker — choose from up to 10 workspace snapshots | Bad turn, wrong direction, need to try again |
+| `/clear` | Abandon session, start completely fresh | You truly want a blank slate |
+| [`/session checkpoints`](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-command-reference) | List compaction checkpoint history | See what the agent "remembers" after compaction |
+| `/session checkpoints N` | View specific checkpoint details | Audit what was summarized in checkpoint N |
+| `/session` | View session info (ID, folder path, etc.) | Find your session folder |
+| [`/usage`](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-command-reference) | Session statistics including token consumption | Monitor token/request usage |
+
+## Snapshots and Checkpoints — Your Safety Nets
+
+This is the section where I need to slow down, because there are **two separate concepts** that sound similar but work very differently. I'll be honest — I was blending these together myself before really digging into the docs.
+
+### Snapshots (Workspace State)
+
+A [snapshot](https://docs.github.com/en/copilot/how-tos/copilot-cli/roll-back-changes) is created automatically at the start of **every prompt** you enter. It captures the state of your files and workspace using Git operations under the hood. This is why `/rewind` requires a Git repo with at least one commit — no Git, no snapshots.
+
+When you hit `/rewind` (or `/undo`, or double-Esc), you get a **rewind picker** showing up to 10 recent snapshots. Pick one, and your workspace reverts to that point — all changes since then are rolled back. Copilot's changes, your manual edits, results from shell commands — everything.
+
+Fair warning: **this is destructive.** All snapshots and session history after the point you choose are permanently removed. There's no "undo the undo."
+
+> In the video, I tried to demo `/undo` and got an error because I'd created a new directory without running `git init` first. Classic. If you're following along, make sure you're in a Git repo with at least one commit. Lesson learned on camera.
+
+### Checkpoints (Conversation State)
+
+A [checkpoint](https://docs.github.com/en/copilot/concepts/agents/copilot-cli/context-management) is created every time compaction runs — whether you triggered it manually via `/compact` or it happened automatically (more on that in a sec). Checkpoints capture the **conversation summary** — the AI-generated distillation of what was discussed, decided, and done up to that point.
+
+You can view your checkpoints with `/session checkpoints` (lists all) and `/session checkpoints N` (shows details for checkpoint number N). In the video I showed this right after compacting — one checkpoint, containing the summary of my planning session. If your session has been running a while, you might find several checkpoints from auto-compaction events you didn't even notice.
+
+But here's the critical thing: **checkpoints are not restorable.** The [docs](https://docs.github.com/en/copilot/concepts/agents/copilot-cli/context-management) explicitly state: *"You can't reverse a compaction once it has completed."* You can view what was summarized, but you can't go back to the pre-compaction conversation.
+
+### Auto-Compaction: Copilot CLI automatically compacts your session in the background
+
+When your conversation reaches approximately 80% of the context window's capacity, compaction starts running behind the scenes. If context hits ~95% before compaction finishes, the session pauses briefly to let it catch up.
+
+You might not even notice it happening. But if you run `/session checkpoints` on a session that's been going for a while, you might find multiple checkpoints you didn't create. That's auto-compaction doing its thing.
+
+This is actually a good reason to check your checkpoints periodically — especially if you notice the agent seeming confused or forgetting things. The checkpoint summaries show you exactly what was preserved and what was compressed away. If your context poisoning problem is hiding in a bad summary, this is how you find it. Although truth be told, I don't usually try to debug my session checkpoints. Instead I'm just aware of what can go wrong and know when to start a new session if things are going off the rails.
+
+### The Right Mental Model
+
+- **Snapshots** = "What did my files look like?" → restorable via `/rewind`
+- **Checkpoints** = "What does my agent remember?" → viewable via `/session checkpoints`, **not** restorable
+
+They're complementary safety nets for different dimensions of your session — code state vs. conversation state. And as you'll see next, they work beautifully together.
+
+## The Plan → Compact → Execute → Rewind-if-Needed Pattern
+
+This is the workflow I use for basically every non-trivial task, and I think it's the single most useful thing in this post.
+
+### The Workflow
+
+1. **Plan** — Switch to [plan mode](https://docs.github.com/en/copilot/how-tos/copilot-cli/cli-best-practices#plan-before-you-build) (`Shift+Tab`) and iterate on an implementation plan. This might be 3-5 turns of back-and-forth — reviewing the plan, tweaking details, adding requirements. In the video I kept it short for demo purposes, but in real workflows this is usually my longest phase. It's a conversation, not a one-shot.
+
+2. **Compact** — Run `/compact`. Two things happen:
+   - A **checkpoint** is created (the conversation summary becomes the agent's working memory going forward)
+   - Context space is freed by replacing the verbose planning conversation with a concise summary
+
+3. **Optionally: switch models** — Use `/model` to switch from your planning model to something lighter. In the video I went from Sonnet to Haiku 4.5 — plan with the smarter model, execute with the cheaper, faster one. The compacted summary carries forward regardless of model switch.
+
+4. **Execute** — Prompt the agent to execute the plan. At the start of this prompt, a **snapshot** is automatically created, capturing your pre-execution workspace state.
+
+5. **If it goes well** — Great, keep going.
+
+6. **If it goes poorly** — Instead of arguing with the agent (which adds the bad work *and* your corrections to the context, compounding the problem), use `/rewind` (double-Esc) to open the rewind picker. Select the snapshot from before execution.
+
+### Why This Works
+
+This is the key insight: **compaction puts the plan summary into the context foundation, and snapshots protect your workspace state.**
+
+When you rewind after a bad execution:
+- ✅ The snapshot restores your files to the pre-execution state
+- ✅ The failed execution turns are removed from conversation history
+- ✅ The compacted plan summary **survives** — it's the foundation of your context, not part of the removed turns
+
+So you end up back at a clean state: plan in memory, files clean, no failed-attempt context poisoning your next try. You can adjust your prompt, give the agent different guidance, or even go back into plan mode to refine further — all without the baggage of the bad attempt dragging things down.
+
+In the video, I described it as: *"I don't have to throw this session entirely away or keep poisoning my context by going forward and trying to yell at my agent to correct it."* That's exactly the point. The plan→compact→execute→rewind loop gives you a structured "try again" mechanism without the context debt.
+
+### `/compact` vs `/clear` — A Personal Preference
+
+So you've planned and you're ready to execute. You want a cleaner context for the execution phase. Both `/compact` and `/clear` can get you there — they just work differently.
+
+- **`/compact`** keeps the **same session**. It summarizes the planning conversation into a compact foundation, frees up context space, and your plan file stays right where the agent expects it. Snapshot history stays intact too.
+- **`/clear`** gives you a **brand new session** — fresh context window, new session ID, new session folder. The agent has to re-read the plan and load it in, but it's starting from a completely clean slate.
+
+Personally, I tend to reach for `/compact` because I like the continuity — same session, plan summary baked into context, no extra steps. But honestly? There's nothing wrong with `/clear`. You get a genuinely fresh context window, and the agent has to re-read the plan either way (compact summarizes it, clear re-reads it from the file). The main thing to be aware of is that `/clear` changes your session ID, which means your `plan.md` now lives in the *old* session's folder. As long as you know that's happening, it's fine.
+
+### Tips for Using `/clear` Smoothly
+
+Since `/clear` gives you a new session, here are a few ways to make sure your plan comes along for the ride:
+
+**Ask Copilot to move the plan first.** Before clearing, tell the agent: *"Copy the plan to `./PLAN.md` in the repo root"* or *"Move the plan to `~/.copilot/plans/context-mgmt-plan.md`."* Give it a descriptive name — `plan.md` in a GUID folder means nothing six months from now.
+
+**Use the shell shortcut.** In the video I showed the `!` command to drop into a shell without leaving Copilot — you can quickly `cp` or `mv` your plan file before clearing.
+
+**Use `/share` to export.** The `/share` command can export your entire session to a markdown file, HTML file, or GitHub gist. Great for research sessions where the journey matters as much as the conclusion.
+
+**Note the session ID.** Run `/session` before clearing. The old session folder still lives at `~/.copilot/session-state/{old-id}/` after you clear. You can browse to it manually or use `/resume {old-id}` to jump back in later.
+
+> Either approach works. I default to `/compact` because it's fewer steps for my workflow, but if you prefer the clean slate of `/clear`, just spend 10 seconds making sure your plan is somewhere the new session can find it.
+
+## Sub-Agents and Context Isolation
+
+This is where context management gets really interesting: **[sub-agents](https://docs.github.com/en/copilot/concepts/agents/copilot-cli/fleet) get their own context windows.** Each sub-agent — whether it's a built-in type (explore, task, general-purpose, code-review, rubber-duck) or a custom agent you've created — operates in a separate context from your main session.
+
+### Why This Matters for Context
+
+Think about it from a budget perspective:
+
+- A sub-agent reads files, greps code, analyzes modules — all in **its own** context window
+- When it's done, it returns a **summary** to your main session — not the raw file contents, not every grep result, not the full chain of reasoning
+- Your main context gets the output you need without the token cost of the full exploration
+
+The `task` agent is a great example of this in practice: it returns a brief summary on success ("All 247 tests passed"), and full output only on failure (stack traces, error details). That's naturally context-efficient for your main session.
+
+In the video, I pointed out that after running execution with sub-agents via fleet mode, my context was at about 33% — not much more than the 25% after planning alone. *"One of the reasons that my context is not huge is it was using sub-agents to execute a lot of what it was doing."*
+
+### Fleet Mode — Parallel Context Windows
+
+[Fleet mode](https://docs.github.com/en/copilot/concepts/agents/copilot-cli/fleet) takes sub-agents further by breaking a task into independent sub-tasks that run in parallel, each in its own context window.
+
+> **Corection to recording:** I mention in the video that fleet mode might still be experimental. It has graduated to a standard feature — just type `/fleet` followed by your prompt. No experimental toggle needed.
+
+In the video, I used fleet mode to execute my file-summary tool plan — prompting it to use sub-agents for the README and test files while the main agent handled the core implementation. Fleet's orchestrator manages dependencies between sub-tasks and synthesizes results. Each sub-agent can even use a different model if you specify it.
+
+The orchestrator is pretty smart about this, too — it uses an internal SQL database to track to-dos and dependencies, so it can manage parallel execution effectively. You can watch the progress with `/tasks` to see which sub-agents are running and what they're working on.
+
+### Tips for Getting Sub-Agents Invoked
+
+The model *decides* whether to delegate to sub-agents — you can't force it, but you can strongly encourage it:
+
+1. **Mention the agent by name** — *"Use the `@code-review` agent to review these changes"* or *"Have an explore agent research how logging is set up before making changes"*
+2. **Use `/fleet`** — the orchestrator actively looks for ways to decompose and delegate. It's the most reliable trigger.
+3. **Frame work as delegatable** — *"Create tests for each module independently"* signals parallelization much better than *"Add tests"*
+4. **Ask for structured output** — *"Return findings as a markdown table"* or *"Return structured JSON"* gives the main agent compact, structured data to work with instead of verbose prose
+5. **Just be explicit** — *"Delegate the documentation updates to a sub-agent"* works more often than you'd expect
+6. **Use the phrase "fan out"** - I gave a shout-out to [Brady Gaster's Squad](https://github.com/bradygaster/squad) in the video. Brady has a great tip: use the phrase "fan out" in your prompts to make sure the orchestrator delegates rather than doing everything itself.
+
+## Keeping Context Lean — Proactive Strategies
+
+Beyond the reactive tools (compact, rewind, clear), there are proactive ways to keep your context lean from the start.
+
+### The MCP Bloat Problem
+
+This is a real and growing issue: **every MCP server you have configured registers its tool schemas into your context window at session start.** That's before you've typed a single word.
+
+In the video I showed that I had 7 MCP servers configured. Each one dumps its tool definitions — name, description, parameter schemas, sometimes examples — right into context. A single MCP server with 30+ tools can eat a surprising chunk of your budget.
+
+Run `/context` in a fresh session and look at the System/Tools bar. If it's bigger than you expected, MCP schemas are likely the culprit.
+
+The tradeoff is real: MCP servers make tools *discoverable* (the agent sees the full schema and decides when to use each one), but that discoverability comes at a constant context cost. CLI tools like `az`, `gh`, `npm`, and `docker` have zero upfront context cost — the agent just calls them via shell when needed.
+
+There's actually a broader trend happening here: **a lot of functionality that used to require dedicated MCP servers is moving to CLIs instead.** Agents are surprisingly good at discovering and calling CLI tools on their own — and CLIs don't bloat your context window. You can also reference CLI tools from within [skills](/articles/agents-skills-plugins-extensions#skills--the-action), which are dynamically loaded only when relevant. So instead of an always-on MCP server eating context from the start, you get a skill that loads a CLI tool on demand. It's a nice pattern if you're bumping up against context limits.
+
+**What you can do:**
+- Audit your MCP servers with `/mcp` — remove any you don't actively use
+- Consider whether a CLI tool can replace an MCP server for your use case
+- For specialized servers you only need occasionally, add/remove them per-session rather than having them always configured
+- Keep an eye on that System/Tools bar in `/context` — it's your early warning system
+
+### Instruction File Scoping
+
+I covered this in depth in the [instruction files post](/articles/instruction-files-and-chronicle), but it's directly relevant here: **path-scoped instruction files with `applyTo` globs are only loaded when the agent is working on matching files.**
+
+This means an instruction file for your test framework conventions only consumes context when Copilot is actually working on test files. Compare that to a repo-wide instruction file that's loaded into every single interaction regardless of what you're doing. If you have instructions that only apply to certain parts of your codebase, scope them with `applyTo`.
+
+### Skills as Dynamic Context
+
+[Skills](/articles/agents-skills-plugins-extensions#skills--the-action) are loaded on-demand — the agent picks them up when it determines they're relevant to the current task, not on every turn. This makes them more context-friendly than always-on instruction files for task-specific knowledge.
+
+If you notice the agent "greedily loading" skills you don't need, make sure you only have relevant skills available in that session's scope.
+
+### Be Surgical with File References
+
+Every `@file` reference adds the file's full contents to your context. Be specific — reference individual files, not entire directories. And consider whether the agent could *find* what it needs using its built-in tools (grep, glob, view) instead of you pre-loading everything. Let the agent pull files into context on-demand rather than you pushing everything up front.
+
+### Watch Your Agent File Size
+
+One more thing from the video worth calling out: agent files (`.agent.md`) get loaded into your context too. A really large agent file with extensive instructions eats into your budget on every turn. There are trade-offs — more detailed instructions can absolutely improve agent behavior — but if you're seeing unexpectedly high context usage, check whether your agent file has grown larger than it needs to be.
+
+## Try It Yourself
+
+Here's your homework (if you're into that sort of thing):
+
+1. **Run `/context` in your next session** — just look at where your tokens are going. You might be surprised how much is consumed before you type anything.
+
+2. **Try the plan → compact → execute pattern** on your next multi-step task. Even if you don't need to rewind, compacting between planning and execution gives your agent a cleaner foundation to work from.
+
+3. **Experiment with `/fleet`** on something parallelizable — writing tests, creating docs, refactoring across multiple files. Watch how the sub-agents operate in their own contexts and notice how your main session stays lean.
+
+4. **Check your instruction files** — are any always-on that could be path-scoped with `applyTo`? Are you loading MCP servers you never actually use?
+
+5. **Run `/session checkpoints`** on a longer session and see what Copilot has been summarizing on your behalf. It's a surprisingly interesting window into how auto-compaction works.
+
+## Wrapping Up
+
+Context management isn't something you master — it's something you develop intuition for. The more you use these tools, the more natural it becomes to think about what your session knows, what it's forgotten, and when it needs a reset.
+
+The pattern I keep coming back to is simple: **plan deliberately, compact before executing, use sub-agents to keep your main context clean, and don't be afraid to rewind when things go sideways.** That loop — plan, compact, execute, evaluate, maybe rewind and try again — is how I run most of my Copilot workflows these days.
+
+For the full reference, the [Managing context](https://docs.github.com/en/copilot/concepts/agents/copilot-cli/context-management) docs page and the [Rolling back changes](https://docs.github.com/en/copilot/how-tos/copilot-cli/roll-back-changes) page cover everything here and more. The [Best practices](https://docs.github.com/en/copilot/how-tos/copilot-cli/cli-best-practices) guide and the [CLI command reference](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-command-reference) are worth bookmarking too.
+
+Making it up as I go along, as always. Happy vibe coding. ✌️
