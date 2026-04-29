@@ -1,0 +1,216 @@
+---
+title: "Skills Pay the Bills, But Scripts Ship"
+description: "Skills are incredible — shareable, intelligent, loaded on demand. But sometimes a simple script does the job faster, cheaper, and without burning your context window. Here's how to know which one to reach for."
+pubDate: 2026-04-28
+tags: ["Copilot CLI", "Developer Tools", "AI", "Productivity"]
+draft: false
+---
+
+<div class="tldr-box">
+
+**TL;DR** — Skills are one of the most powerful primitives in the AI agent ecosystem — portable, shareable, and intelligent. But not everything needs intelligence. If the task is deterministic and the output is predictable, a plain script will run faster, cost zero tokens, and keep your context window clean. Before you reach for a skill, ask yourself: _does this actually need an AI to think, or does it just need to run?_ Copilot can write either one for you in minutes.
+
+</div>
+
+## I Love Skills. This Post Is About When Not to Use Them.
+
+If you read my [previous post on agents, skills, plugins, and extensions](/articles/agents-skills-plugins-extensions), you know I'm a fan. Skills are one of those things that, once you get the hang of them, you start seeing opportunities for them everywhere. Need to create a presentation from a spec? Skill. Need to run a multi-model code review? Skill. Need to triage your GitHub notifications? Skill, skill, skill.
+
+And that's the trap.
+
+I caught myself the other day about to write a skill for something that absolutely did not need one. I wanted a quick way to see all the builds on my main branch — specifically highlighting failures and giving me a clickable link to the one that's broken. My first instinct was "oh, I'll make a skill for that." And I got about two sentences into the `SKILL.md` before I stopped and thought: _wait, this is just an API call and some string formatting. Why am I involving an AI?_
+
+That moment is what this post is about.
+
+## A Quick Refresher: What Makes Skills Great
+
+Under the hood, skills ride on the [Agent Skills specification](https://agentskills.io) — an open standard that a growing number of agent platforms support, including GitHub Copilot, Claude Code, Gemini CLI, and Cursor. The nice part is I'm not locking myself into one tool when I write a skill. Each one is a self-contained folder with a `SKILL.md` file that bundles instructions, scripts, templates, and reference materials into a reusable knowledge package.
+
+Here's what makes them genuinely worth reaching for:
+
+- **Transferable across agents.** A single skill works in your architect agent, your code review agent, and your personal assistant agent. Write it once, use it wherever.
+- **Loaded on demand.** Agents only read the `name` and `description` at startup. Full instructions load only when the skill is actually needed — [progressive disclosure](https://agentskills.io/specification) keeps context lean until the moment it matters.
+- **Shareable across teams.** Drop them in `.github/skills/` for your whole repo, or install them from a marketplace via plugins.
+- **Intelligence where it counts.** Skills can include decision-making, branching logic, and multi-step workflows that adapt based on context. The agent _thinks_ about how to apply the skill — that's the value-add.
+
+That last point is the key distinction. Skills shine when the task requires judgment — when you need the agent to read a situation, make decisions, and adapt its approach.
+
+But here's the thing: not every task requires judgment.
+
+## Sometimes You Just Need a Script
+
+A script is a deterministic action. You run it, it does the thing, it gives you the output. No thinking required, no reasoning tokens burned. It just runs.
+
+And scripts have some properties that skills can't really compete with:
+
+| Property | Script | Skill |
+|----------|--------|-------|
+| **Speed** | Milliseconds | Seconds to minutes (model inference) |
+| **Token cost** | No reasoning tokens; just the output if an agent reads it | Skill instructions + reasoning + output all consume tokens |
+| **Context impact** | Minimal (only the output enters context) | Skill instructions load into context |
+| **Determinism** | Same output for the same inputs and environment | Output varies by model, temperature, context |
+| **Debuggability** | Standard tooling, error codes, logs | Harder to trace — why did the agent do _that_? |
+
+That's not a knock on skills. It's just reality: if the task doesn't need intelligence, adding intelligence is overhead.
+
+### A Quick Aside: What About MCPs?
+
+You might also be noticing a broader trend right now — there's a growing conversation around [command line tools versus MCP servers](https://docs.github.com/en/copilot/concepts/agents/copilot-cli/context-management). MCPs are great when you need a persistent, discoverable service interface that many agents can connect to. But for a lot of tasks, a simple CLI tool or script is the more practical choice — it's local, it's fast, it doesn't require running a server, and your agent can call it with a single tool execution. The rise of agents that are genuinely good at _driving_ existing command line tools means that sometimes the simplest integration is no integration at all — just a script your agent knows how to run.
+
+## The Build Dashboard Example
+
+Here's the scenario I mentioned: I want to see recent builds on my main branch, with failures highlighted and a link to the broken one.
+
+### The Skill Approach
+
+If I wrote this as a skill, the agent would:
+
+1. Load the skill instructions into context (~500+ tokens)
+2. Figure out which build system I'm using
+3. Decide which API to call
+4. Call the API (probably via a tool like `powershell` or `gh`)
+5. Parse the response
+6. Format the output
+7. Present it to me
+
+That works. But steps 2 and 3 are unnecessary if I already know my build system. Steps 4–6 are deterministic string manipulation. The only "intelligence" here is formatting — and I can decide on that format once and hard-code it.
+
+### The Script Approach
+
+> This script is for illustration purposes — don't expect it to work as-is. But it shows the idea.
+
+```powershell
+# recent-builds.ps1 — Show recent main branch builds, highlight failures
+$runs = gh run list --branch main --limit 10 --json name,status,conclusion,url |
+    ConvertFrom-Json
+
+foreach ($run in $runs) {
+    $icon = switch ($run.conclusion) {
+        "failure" { "❌" }
+        "success" { "✅" }
+        default   { "⏳" }
+    }
+    $line = "$icon $($run.name) — $($run.conclusion ?? $run.status)"
+    if ($run.conclusion -eq "failure") {
+        Write-Host $line -ForegroundColor Red
+        Write-Host "   $($run.url)" -ForegroundColor DarkGray
+    } else {
+        Write-Host $line
+    }
+}
+```
+
+That's it. Runs in under a second. Zero tokens. Zero context impact. And if I alias it in my PowerShell profile (`Set-Alias builds recent-builds.ps1`), it's always one word away.
+
+The best part? My agent can _call_ this script when it needs build information. So I still get the benefit of agent-powered workflows — the agent just uses a fast, deterministic tool instead of reasoning through it from scratch every time.
+
+## When to Reach for a Skill
+
+Skills are the right call when the task genuinely needs intelligence — when you need the agent to read, think, decide, and adapt. Here are some clear skill-territory scenarios:
+
+- **Multi-model code review.** The `council-review` skill orchestrates three different AI models to independently review changes, then synthesizes their findings. That's not a script — it's coordination that requires real reasoning.
+- **Content generation.** Creating a presentation, drafting a blog post, writing release notes from a changelog. The output varies based on context, tone, and audience. That's judgment.
+- **Triage and classification.** Reading GitHub notifications and deciding which ones need your attention, which can be closed, and which need investigation. That's pattern recognition.
+- **Complex debugging.** Analyzing a stack trace, correlating it with recent changes, suggesting a fix. The agent needs to understand code semantics, not just parse text.
+- **Anything with branching human-like decisions.** If a flowchart for the task has a lot of "it depends" branches, that's a skill.
+
+The common thread: **the output can't be predicted from the input alone.** The agent's reasoning is the value-add.
+
+## When to Reach for a Script
+
+Scripts win when the task is mechanical — when you can describe exactly what should happen for every possible input, and the "thinking" is just following a recipe.
+
+- **API queries with known formatting.** "Show me the last 10 PRs" — that's a `gh pr list` call with some formatting. Script.
+- **Status dashboards.** Build status, deployment status, environment health checks. The data comes from an API, the presentation is fixed. Script.
+- **File transformations.** Converting formats, renaming batches of files, extracting data from structured logs. Deterministic input → deterministic output. Script.
+- **Environment setup.** Installing dependencies, configuring tools, bootstrapping a dev environment. You know exactly what needs to happen. Script.
+- **Repetitive CLI workflows.** That three-command sequence you run every morning? Script it. Alias it. Never think about it again.
+- **Personal workflow glue.** I have a script in [my PowerShell profile](/articles/customize-your-terminal-with-copilot-cli) that creates a new git worktree, sets up the branch, and opens it in my terminal — all in one command. I almost made that a skill once. Thank god I didn't, because I run it dozens of times a week and it finishes in under a second.
+
+The common thread: **the output is fully determined by the input.** No reasoning required, just execution.
+
+## The Hidden Cost: Context and Tokens
+
+This is the part that's easy to miss, and honestly it's the reason I care enough to write a whole post about it.
+
+Every time a skill activates, its instructions load into your context window. If the skill calls tools and those tools produce output, that output goes into context too. In a [long session where context is already tight](/articles/managing-context-in-copilot-cli), activating a skill for something that could've been a script is like paying with a credit card for a pack of gum — technically works, but you're adding overhead you didn't need.
+
+Here's a rough breakdown of the cost:
+
+| Action | Approximate token cost |
+|--------|----------------------|
+| Skill instructions load | 500–2,000 tokens |
+| Agent reasoning about how to apply the skill | 200–1,000 tokens |
+| Tool call execution + result parsing | Variable (could be thousands) |
+| A script alias your agent calls | Just the output (often < 100 tokens) |
+
+Over a long session with multiple skill activations, this adds up. And when context fills up and compaction kicks in, you might lose _actually important_ context to make room for skill outputs that were just deterministic data retrieval.
+
+Scripts keep your context budget for the things that actually need intelligence.
+
+## Copilot Writes Scripts Too
+
+Here's the thing people forget: Copilot isn't just for writing skills and agents. It's phenomenal at writing scripts. In fact, it's arguably _better_ at writing scripts because the output is fully testable and deterministic — there's a right answer, and Copilot can nail it.
+
+I had Copilot write that build dashboard script in about 30 seconds. I said something like:
+
+> "Write me a PowerShell script that uses the gh CLI to list recent builds on main, shows them with emoji status indicators, highlights failures in red, and includes a link to failing builds."
+
+Done. First try. And because it's a script, I can test it, version-control it, tweak the formatting, and share it with my team — all without worrying about model behavior or prompt sensitivity.
+
+You can write scripts in whatever makes sense for your environment:
+
+- **PowerShell** — great on Windows, my go-to since my [whole profile is already set up for it](/articles/customize-your-terminal-with-copilot-cli)
+- **Bash** — the universal choice for CI/CD and Linux/macOS environments
+- **Python** — when you need more complex data processing or library support
+- **Rust or Go** — when you want compiled performance and easy distribution
+- **Node.js** — if your team already lives in the JavaScript ecosystem
+
+The point is: the barrier to writing a script is basically zero when you have an AI pair programmer. So the excuse of "it's faster to just make a skill" doesn't really hold up anymore.
+
+## A Simple Decision Heuristic
+
+When you're about to create a skill, run it through this quick filter:
+
+1. **Does this task require the agent to make judgment calls?** If yes → skill. If no → probably a script.
+2. **Will the output vary based on context, not just input?** If yes → skill. If no → script.
+3. **Does this need to adapt to different situations?** If yes → skill. If no → script.
+4. **Could I describe the exact output for every possible input?** If yes → script. If no → skill.
+
+And here's a fun meta-move: **ask Copilot.** Seriously. Describe the task and ask, _"Should this be a skill or a script?"_ It'll give you a pretty solid answer, because this is exactly the kind of reasoning it's good at.
+
+## Skills and Scripts Working Together
+
+The best setups use both. Your skills can call scripts as part of their execution — the [Agent Skills spec](https://agentskills.io/specification) explicitly supports bundling scripts in the `scripts/` directory of a skill. And your agents can call standalone scripts via tool execution whenever they need fast, deterministic data.
+
+Think of it like this: skills are the brain, scripts are the hands. The brain decides what needs to happen; the hands do the mechanical work quickly and reliably. You wouldn't ask your brain to individually control each finger muscle when you're typing — you just type. Same idea.
+
+In my setup:
+- **Skills** handle the complex workflows — multi-model reviews, content generation, triage decisions
+- **Scripts** handle the data retrieval — build status, PR lists, environment checks, deployment status
+- **Agents** orchestrate both — calling skills when they need intelligence and scripts when they need speed
+
+That layering keeps my sessions fast, my context clean, and my token budget focused on the work that actually needs AI.
+
+## Your Turn
+
+Next time you're about to write a `SKILL.md`, pause for five seconds and ask: _could this be a script?_ If the answer is yes, ask Copilot to write the script instead. You'll probably have it running before you would've finished writing the skill's description field.
+
+And if you've already got skills that are secretly just deterministic data retrieval wrapped in AI reasoning? No judgment — I had a few of those too. Convert them to scripts this week. Your context window will thank you.
+
+---
+
+Skills are awesome. I'll keep saying that. They're one of the most important primitives in the AI-powered development stack, and the [Agent Skills spec](https://agentskills.io) makes them portable across a ton of agent platforms. But the best skill users are also the best script writers — because they know that not every nail needs an AI-powered hammer. Sometimes a regular hammer is faster, cheaper, and gets the job done just as well.
+
+Happy scripting. 🤙
+
+## Resources
+
+| Resource | Link |
+|----------|------|
+| Agent Skills Spec | [agentskills.io](https://agentskills.io) |
+| Agents, Skills, Plugins & Extensions (my earlier post) | [caseyirvine.dev](/articles/agents-skills-plugins-extensions) |
+| Context Is King — Managing Your Token Budget | [caseyirvine.dev](/articles/managing-context-in-copilot-cli) |
+| Customize Your Terminal with Copilot CLI | [caseyirvine.dev](/articles/customize-your-terminal-with-copilot-cli) |
+| VS Code Team Kit (real-world skills) | [github.com/microsoft/vscode-team-kit](https://github.com/microsoft/vscode-team-kit) |
+| GitHub Awesome Copilot | [github.com/github/awesome-copilot](https://github.com/github/awesome-copilot) |
