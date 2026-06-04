@@ -1,0 +1,127 @@
+---
+title: "Plan Big, Execute Auto — A Cheaper Way to Run GitHub Copilot"
+description: "The auto model picks the right model for each task and gives paid plans a 10% discount. Plan with a heavyweight, switch to auto to execute, save tokens."
+pubDate: 2026-06-03
+tags: ["Copilot CLI", "Developer Tools", "AI", "Productivity"]
+draft: false
+youtubeId: "T0EcbTOejME"
+---
+
+<div class="tldr-box">
+
+**TL;DR** — The [auto model](https://docs.github.com/en/copilot/concepts/models/auto-model-selection) in GitHub Copilot picks the best model for each task and gives paid plans a **10% discount** on model costs. My recommended workflow for non-trivial work: plan with a heavyweight model (I use GPT-5.5 with high reasoning), then switch to auto to execute the plan. You get the smart planning where it matters and cheaper execution where it doesn't, with the discount stacked on top. For small or exploratory work, just start in auto — the dance isn't worth it.
+
+</div>
+
+## The instinct I'm trying to break
+
+When I sit down to do real work with GitHub Copilot, my first instinct is usually to reach for the biggest, fanciest model available to me. Bigger model, better results, right? That's the math my brain wants to do, even though I know it's not that simple.
+
+I've been forcing myself out of that habit by spending more time with the auto model — and once I figured out how to actually use it well, I started saving real money without giving up much of anything in quality. The trick isn't "always use auto" or "always use the heavyweight." It's knowing when to do which.
+
+This post is about how I think about that choice, the 10% discount that makes auto worth paying attention to, and the plan-then-auto workflow I use for most substantial work.
+
+> Quick note: this video was recorded inside the new GitHub Copilot desktop app — same model picker, same auto, same discount as the CLI. I'll do a separate post on the app itself. For now, everything here works the same in the CLI, the desktop app, and the cloud agent.
+
+## What auto actually does
+
+Auto isn't just a roulette wheel. It's a routing system that combines two things:
+
+1. **Real-time model health and availability** — how the underlying models are performing right now, including whether they're being rate-limited.
+2. **Task complexity** — how hard your specific task looks, so simple things get routed to fast cheap models and harder things get routed to more capable ones.
+
+The [official docs](https://docs.github.com/en/copilot/concepts/models/auto-model-selection) call out that routing happens along natural cache boundaries — meaning auto deliberately avoids switching models mid-conversation when it would invalidate prompt caching. That's an important detail and we'll come back to it.
+
+When auto picks a model for a turn, the CLI tells you which one it picked. I find myself watching that line scroll by, building a quiet intuition for how the router thinks. Lightweight tasks get Haiku 4.5. Heavier coding work gets routed to something like a Codex variant. It's not magic, but it's pretty good.
+
+You can set it with `/model auto`, and you can always pin a specific model with `/model <name>` if you want full control for a stretch of work.
+
+## The 10% discount, in plain English
+
+This is the part that quietly changes the math. If you're on a paid Copilot plan — **Pro, Pro+, Business, or Enterprise** — using auto gets you a **10% discount on model costs** in Copilot Chat, the CLI, and the cloud agent. Per the [official documentation](https://docs.github.com/en/copilot/concepts/models/auto-model-selection#discount-for-using-auto-model-selection):
+
+> If you are on a paid Copilot plan, you qualify for a 10% discount on model costs while using auto model selection in Copilot Chat, Copilot CLI, or Copilot cloud agent.
+
+It's not a coupon you have to claim. It's just there when you're in auto. And because it compounds over every request, it adds up faster than the number suggests if you're doing a lot of agent work.
+
+The discount applies to whatever model auto routes you to — including the heavier ones if your task earns them. So you're not trading capability for cost. You're trading *manual control* of model selection for a discount, and you're trusting the router to do better than you would on a per-turn basis.
+
+For a lot of work, that's a great trade. But not all work.
+
+## The plan-then-auto workflow
+
+Here's the pattern I use for anything substantial.
+
+**Step 1: Plan with a heavyweight.** I start in plan mode with GPT-5.5 on high reasoning — that's my default for serious work. I describe what I want, push back on the plan, iterate. The model is doing what it's good at: reasoning hard about scope, structure, and approach. This is where bad assumptions get caught early, and it's worth the tokens.
+
+**Step 2: Exit plan mode and switch to auto.** Once the plan is solid, I exit plan mode, run `/model auto`, and switch into autopilot mode. Yes, this is a little manual — you do it in three steps right now and I'd love a single shortcut someday. But it takes about ten seconds.
+
+**Step 3: Tell it to execute.** I say something like "execute the plan." Auto picks a model for the execution phase — for a small task it might land on Haiku 4.5; for heavier coding work it's chosen Codex or Opus variants for me. The CLI tells you which model it picked, and the 10% discount applies to the whole execution phase.
+
+That's the entire trick. Big-brain planning, lean-and-cheap execution, discount on top.
+
+## Why this usually wins (and the cache cost I'm not going to hide from you)
+
+There's a real cost to switching models mid-session that I want to call out, because if I didn't, I'd be giving you slightly bad advice.
+
+**The cost:** when you switch from one model to another inside the same session, the new model can't read the previous model's prompt cache. It has to re-process the whole conversation up to that point as fresh input tokens, at its own rates. So the moment you flip from GPT-5.5 to auto, the auto-selected model is "catching up" on the planning conversation with no cache discount. This is exactly what the GitHub docs are pointing at when they mention that auto's internal routing avoids mid-session switches.
+
+**Why the pattern still wins for non-trivial work:** the cost is one-time. The savings are per-token, for the entire execution phase, plus the 10% discount on top. The execution phase is usually where most of the tokens get spent — tool calls, file edits, iteration, retries. For any real coding task, the cheaper per-token rate during execution dwarfs the one-time switching cost.
+
+The math flips for tiny work — which leads to the next section.
+
+## When to skip the dance and just start in auto
+
+The plan-then-auto pattern is for substantial work. It's overkill — and probably a small loss — for everything else.
+
+If you're doing small or exploratory work, just start in auto:
+
+- One-off edits and quick commands
+- Poking at an unfamiliar codebase
+- Asking questions, learning a tool, exploring an API
+- Anything where "the plan" is basically the prompt itself
+
+In these cases, there's no big planning phase to protect with a heavyweight, and the one-time switching cost would eat your savings. Auto's task-complexity routing is designed for exactly this kind of variable workload, and you still get the 10% discount the whole time.
+
+**The edge case:** what about large work where you happen to have a very detailed initial prompt — enough that auto might pick a heavy model for it? My honest take: I'd still rather control the planning model directly than trust the router with the most important decision of the session. If you have the detail to write a great initial prompt, you also have the judgment to pick the right planning model. Your mileage may vary.
+
+So the mental model I use, all in one place:
+
+| Kind of work | What I do |
+|---|---|
+| Small or exploratory | Start in auto. Done. |
+| Substantial with a clear scope | Plan with a heavyweight, switch to auto to execute. |
+| Anything | Watch what auto picks in the terminal. Build routing intuition. |
+
+## Practical notes
+
+A few things worth knowing if you're going to try this:
+
+- **Auto respects your plan's model availability.** It only picks from models you actually have access to under your subscription and any admin policies. No surprises there.
+- **The CLI shows you what got picked.** Each response tells you the model auto used. I find this genuinely useful for building intuition.
+- **You can pin when you need to.** `/model <name>` overrides auto if you want full control for a stretch of work. The discount goes away while you're pinned.
+- **If you blow through your premium request budget**, auto falls back to 0x-multiplier models so you keep working. It's a soft floor, not a hard wall.
+
+## Try it on your next two tasks
+
+Here's the challenge: try both modes back-to-back so you can feel the difference.
+
+1. **Your next non-trivial task:** plan it with a heavyweight on high reasoning. Push on the plan until it's solid. Exit plan mode, run `/model auto`, switch to autopilot, and say "execute the plan." Watch which model auto picks and how it goes.
+2. **Your next small task:** just start in auto. Don't pre-pick a model. Notice how rarely you actually needed the heavy hitter for that kind of work.
+
+Then drop a comment and tell me what you noticed. I'm curious whether the plan-then-auto pattern lands the same way for you as it has for me.
+
+## Closing thought
+
+Most of the cost optimization advice I see for AI tools is either "just use the cheap model" or "just use the expensive model." Neither is right. The auto model is the first thing I've used that actually splits the difference intelligently, and the plan-then-auto workflow lets you push that even further on the work where it matters.
+
+Make it up as you go along — but maybe spend a little less while you're doing it.
+
+## Resources
+
+| Resource | Link |
+|---|---|
+| Auto model selection (official docs) | [docs.github.com](https://docs.github.com/en/copilot/concepts/models/auto-model-selection) |
+| Copilot CLI auto changelog | [github.blog](https://github.blog/changelog/2026-04-17-github-copilot-cli-now-supports-copilot-auto-model-selection/) |
+| Copilot CLI command reference | [docs.github.com](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-command-reference) |
+| Supported models in auto | [docs.github.com](https://docs.github.com/en/copilot/reference/ai-models/supported-models) |
