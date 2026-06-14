@@ -1,0 +1,314 @@
+---
+title: "When AI Credits Stopped Feeling Finite"
+description: "I work somewhere with a virtually unlimited AI budget. It's an incredible benefit — and it's quietly making me a worse decision-maker about which model to reach for. Here's what I've noticed, both the upside and the downside, and what I'm trying to do about it."
+pubDate: 2026-06-11
+tags: ["AI", "GitHub Copilot", "Developer Tools", "Engineering Culture"]
+draft: false
+---
+
+<div class="tldr-box">
+
+**TL;DR** — Sometime in the last year, the day-to-day experience of using AI at
+work shifted from "watch the meter" to "don't think about it." That shift
+unlocks a real culture change — more experimentation, more side projects, more
+willingness to learn in public. But it also quietly turns off a muscle most
+developers spent years building: picking the right tool for the job. I think
+both things are true at the same time, and I want to talk about both.
+
+</div>
+
+## A quick honesty check before we start
+
+I want to be precise about one word before I use it a hundred times: **"unlimited."**
+
+I'm an IC developer at Microsoft, and I have what feels like a virtually
+unlimited AI budget for both work and personal use. But there is no formal
+"unlimited tokens" policy I can point you to. What I actually have is:
+
+- Very high practical limits — rate limits, per-model caps, theoretical ceilings
+- A day-to-day experience where I don't watch a monthly credit counter creep
+  toward a cliff the way I did all of last year
+
+That second part is the thing I want to talk about. The *feeling* of unlimited.
+The shift from rationing to not thinking about it. So when I say "unlimited" in
+this post, that's what I mean — the practical experience, not an official
+policy.
+
+And before I get into the rough edges: I want to be clear that this is
+genuinely one of the best perks I have. I'm not the only one who feels that
+way — I hear it from coworkers all the time. "The unlimited AI thing" comes
+up regularly as one of the most valuable benefits of working at Microsoft
+right now, and I agree with them. Everything else in this post is written
+from a place of "this is great, *and* let's be honest about what it's
+quietly costing us."
+
+> One more caveat before we dive in: I'm writing this in **June 2026**. The
+> model names, prices, and multipliers I'm about to throw around will probably
+> look antiquated within a year. The *patterns* will hold. The specifics will
+> not. Hedge accordingly.
+
+## How AI usage actually gets paid for (a primer)
+
+If you're at a big company with generous AI access, you may not have looked at
+the pricing model in a while. If you're on a paid Copilot plan, you absolutely
+have. Either way, it helps to share a mental model before we get into the
+observations — otherwise the cost stuff later doesn't land.
+
+Here's the short version, drawn straight from
+[GitHub's models and pricing docs](https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing).
+
+### Tokens are the unit of consumption
+
+Every interaction with a model consumes **tokens**: the input you send, the
+output the model generates, and any cached context it reuses. Long contexts
+and multi-step agent runs add up *fast* — a chat question might be a few
+thousand tokens; a multi-hour autonomous coding session can be hundreds of
+thousands or millions.
+
+### The old way: premium requests and model multipliers
+
+Until very recently, GitHub Copilot used **premium requests**, where every
+prompt counted as one request, [multiplied by the model's rate](https://docs.github.com/en/copilot/reference/copilot-billing/request-based-billing-legacy/copilot-requests).
+A prompt to a small default model was 1x. A prompt to a flagship reasoning
+model could be many times that. Pick a heavier model, drain your monthly
+allowance faster. Simple to reason about, easy to feel the cost of each choice.
+
+### The new way: AI Credits, metered by tokens
+
+On [June 1, 2026 — just over a week ago as I write this](https://github.blog/news-insights/company-news/github-copilot-is-moving-to-usage-based-billing/) —
+GitHub replaced premium requests with **GitHub AI Credits**. The change is
+straightforward but important:
+
+- At the time of writing, 1 AI Credit = $0.01 USD (approximate; check the
+  pricing docs above for the current rate)
+- Every plan includes a monthly allowance of credits
+- Each interaction consumes credits based on **actual token usage** and the
+  **per-model rate** in the pricing table
+- Code completions and Next Edit suggestions stay included, no credits consumed
+
+The pricing varies enormously by model. At the time of writing, per the docs
+above, you're looking at roughly:
+
+| Model class    | Example model     | Input / output (per 1M tokens) |
+| -------------- | ----------------- | ------------------------------ |
+| Lightweight    | GPT-5 mini        | $0.25 / $2.00                  |
+| Versatile      | Claude Sonnet 4.6 | $3.00 / $15.00                 |
+| Powerful       | Claude Opus 4.7   | $5.00 / $25.00                 |
+| Frontier       | GPT-5.5           | $5.00 / $30.00                 |
+
+GitHub's own framing for *why* they made the change is worth quoting, because
+it explains the energy behind everything else in this post:
+
+> Today, a quick chat question and a multi-hour autonomous coding session can
+> cost the user the same amount. GitHub has absorbed much of the escalating
+> inference cost behind that usage, but the current premium request model is
+> no longer sustainable.
+
+That's the world we're in now. Model choice maps directly to credit cost, and
+the difference between a small model and a frontier model is a **15–20x spread**
+on output tokens. Which makes this post particularly relevant going forward.
+
+### The other lever: reasoning effort
+
+There's a second knob that's easy to miss, and it changes the math even more.
+
+Many of the modern reasoning models — things like GPT-5.5 and Claude Opus 4.7
+at the time of writing — let you pick a **reasoning effort**: low, medium,
+high, sometimes "xhigh." Cranking that up doesn't change the per-token *price*
+of the model. What it changes is how many tokens the model burns *thinking*
+before it produces a final answer. Those internal "reasoning tokens" are
+billed at the regular output-token rate, even though you usually don't see
+them in the response.
+
+So when I say something like *"I plan with GPT-5.5 at high reasoning,"* what
+I'm actually doing is stacking two cost multipliers on top of each other:
+
+1. **The model.** I'm using a frontier model with a high output rate
+   (at the time of writing, GPT-5.5 is around the top of the per-token
+   pricing table).
+2. **The reasoning effort.** I'm asking that model to think harder before
+   answering, which means it generates dramatically more (billable) output
+   tokens than it would at medium or low.
+
+The same prompt to the same model at "high" can easily consume several times
+the tokens it would at "low." Most of those extra tokens are invisible to
+me — they're the model's internal scratchpad. But they show up on the
+credit meter all the same.
+
+This matters for the rest of the post, because when I talk about reaching
+for the biggest hammer, I don't just mean "I picked the most expensive
+model" — I usually mean "I picked the most expensive model *and* turned its
+reasoning all the way up." The combined effect on tokens (and therefore on
+credits) is much larger than either lever on its own.
+
+> Quick footnote: the industry is moving *toward* explicit metering for most
+> users. The "feels unlimited" experience I'm about to describe is, in a
+> sense, an outlier — a moment in time. That makes the muscles I'll talk
+> about building at the end especially worth investing in.
+
+## The sticker shock fades
+
+When the bigger models first appeared with higher multipliers, I was genuinely
+reluctant to use them. I stuck to the 1x defaults and watched my premium
+counter every few days. I remember seeing a 7x or 8x multiplier for the first
+time and thinking, "no way — I'm going to end up on some list my leadership
+reviews at the end of the month."
+
+Then coworkers started raving about the results. I tried one. Then another.
+The shock faded. I stopped checking my counter. And at some point — I
+genuinely can't tell you when — the multipliers fell out of my mental model
+entirely. The Copilot app doesn't really put cost in front of me anymore, so
+I almost never factor it into model choice. The one taste decision I *do*
+still make: I tend to hang back a generation while a model's harness matures.
+By the time you read this those version numbers will look quaint, but the
+pattern holds.
+
+## What I love about it
+
+The upside is real, and I don't want to undersell it.
+
+**Permission to experiment.** The "am I wasting credits?" tax is gone. I'll
+try a wild idea on a Sunday because there's no internal voice telling me to
+be careful. That's culture-shifting in a way that's hard to overstate, and I
+think effectively-unlimited AI access is one of the most important
+ingredients for an org actually going AI-native — not because every
+experiment will be valuable, but because most of them won't be, and that has
+to be okay.
+
+**Side projects that build production confidence.** A few months back I built
+[**EditLess**](https://github.com/cirvine-MSFT/editless) — a session and
+worktree manager tightly coupled to my PR workflow. It served me well for a
+while, then the GitHub Copilot app shipped and absolutely lapped it. So I
+retired the tool. But here's the part that mattered: building it gave me
+**taste**. When the official app arrived I already knew where the friction
+points were and could use it effectively from day one. The thrown-away
+project wasn't waste — it was tuition.
+
+**LLM-as-tutor for new codebases and concepts.** When I drop into an
+unfamiliar repo or a topic I've never touched, I can just… have an
+exploratory conversation with a high-reasoning model. Ask dumb questions,
+chase follow-ups, have it walk me through how something works before I commit
+to reading the docs end-to-end. The dialogue format is valuable in a way that
+reading documentation alone isn't, and because there's no friction around
+"is this worth a credit?", I chase threads I wouldn't have bothered with
+before.
+
+**Creative uses of AI that wouldn't have survived a coding-first budget.**
+Meeting notes turning into docs. Change lists turning into leadership decks.
+Email digests, work-item summaries, random connective tissue. Most of these
+wouldn't survive tight rationing — but collectively they reduce toil
+meaningfully, and a lot of them are how non-coding work suddenly starts
+benefiting from AI too.
+
+## Where I think we're missing out
+
+OK, the harder part. None of this is a complaint — it's me noticing where
+the effectively-unlimited experience is quietly becoming a crutch.
+
+**Overkill by default.** I reach for the flagship for everything — at the
+moment, something like Opus 4.7 or GPT-5.5 with high reasoning, even when
+the task obviously doesn't need it. Refactor a small function? Flagship.
+Write a regex? Flagship. The *closest tool also wins more often than it
+should*: the same heavyweight coding model I'm in for real work is one click
+away from summarizing my last three emails, so that's what gets used.
+Convenience is driving model choice more than fitness.
+
+**Build-everything sprawl.** Every chat I'm in, someone's shipping a new
+agent or skill or dashboard. The energy is genuinely great — people learning
+by building. But a *lot* of it is duplication. Our internal plugin
+marketplace is flooded with very similar plugins (hand raised: I've got one
+in there that's probably a duplicate of a few others).
+
+The deeper issue is that for most of my career, the gate on "should I build
+this?" wasn't a dollar cost — it was my own **time, attention, and energy.**
+Those were finite, so they did the prioritization work for me. AI agents
+have largely removed that front-end gate. I can dispatch a session and have
+something half-built in 20 minutes that would have cost me a weekend before.
+The intrinsic cost didn't actually go away — it just moved to the back end.
+I still pay it in maintenance, mental overhead, and half-finished projects
+in my repos. The bill always comes; it's just deferred. And without the
+front-end gate I'm worse at predicting whether it'll be worth it.
+
+A small case in point: I built a "dev dashboard" pulling Azure DevOps
+pipeline status, sprint work items, and PR queues into a single pane of
+glass. Nice in theory. In practice I barely used it — all that info was
+already a few clicks away in ADO. Under a credit budget I'd have done the
+napkin math up front and skipped it.
+
+**Skipped optimizations.** A lot of what I reach for an LLM to do could be
+done deterministically by a small script — querying work items, fetching
+build status, reformatting JSON. (I wrote a whole
+[skills vs. scripts](/articles/skills-pay-the-bills-but-scripts-ship) post
+on this.) Same with voice dictation: I do a *lot* of it now, and all the
+"um"s and restarts bulk up token counts going into heavyweight models when a
+local model could clean up the transcript first. I haven't bothered. That's
+the kind of laziness an effectively-unlimited budget enables.
+
+## What I'm trying to notice
+
+I don't think the answer is to artificially constrain my own usage to
+simulate a budget — that would just recreate the rationing friction that
+unlimited credits removed, and the side-project and tutor wins would go with
+it.
+
+It also might not be a problem worth solving on my own. Harnesses are
+already getting smarter about this.
+[GitHub Copilot's auto model](https://docs.github.com/en/copilot/concepts/models/auto-model-selection)
+routes individual tasks to right-sized models and applies a 10% discount on
+paid plans. The trajectory is clearly for the platform to handle more of
+this selection for us. So maybe my "I never pick a smaller model" instinct
+matters less over time than I'm making it sound.
+
+But that's a lot of trust to put in a routing system that's still maturing.
+While we wait for it to get there, the things I'm trying to notice in
+my own usage:
+
+**Model choice as a tool choice.** The same way I'd pick between writing a
+script and doing something by hand, between opening a full IDE and running a
+one-liner — those are decisions developers make on instinct from years of
+pattern-matching. Model choice should be no different. It just hasn't been,
+for me, in a while.
+
+**Plan with the heavyweight, execute with auto.** Frontier reasoning where
+it actually matters (the planning), then let the auto model route the
+execution. I went deep on this in
+[plan-big, execute-auto](/articles/plan-big-execute-auto-a-cheaper-way-to-run-github-copilot)
+— and even with effectively unlimited credits, it's still cleaner work.
+
+**Prioritize what to build, not just whether I can build it.** Just because
+I *can* spin something up doesn't mean it should make it to the finish line.
+I want to keep the "try it and see" muscle — that's how I figured out the
+dev dashboard wasn't worth it — but I also want to get better at *failing
+faster*. I think the skill is shifting from "decide carefully up front, then
+commit" to "prototype freely, then be honest about when to drop it versus
+push it through to something production-grade." That last hop — prototype
+to actually useful — is where the engineering craft now lives, and the
+harness isn't going to make that call for me.
+
+## Wrapping up
+
+The day-to-day experience of unbounded AI credits is one of the best
+benefits I've ever had as a developer. It changed how I experiment, how I
+learn, how I prototype, and I wouldn't trade it back for anything. I think
+any company serious about going AI-native eventually needs to offer
+something close to this for their developers.
+
+But "essential" and "free of cost" aren't the same thing. The cost here
+isn't in dollars — it's in the instincts I'm quietly letting atrophy. Maybe
+the harnesses catch up and that doesn't matter. Maybe explicit metering
+comes back for most of us and it matters a lot. I don't know which way it
+goes. I just know I'm not currently building the muscle, and noticing that
+is the first step — whether the answer ends up being me picking better
+models, or just trusting auto when it eventually gets there.
+
+## References
+
+| Resource | Link |
+|---|---|
+| GitHub Copilot — models and pricing | [docs.github.com](https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing) |
+| GitHub Copilot — premium requests (legacy) | [docs.github.com](https://docs.github.com/en/copilot/reference/copilot-billing/request-based-billing-legacy/copilot-requests) |
+| Announcement — GitHub Copilot moving to usage-based billing | [github.blog](https://github.blog/news-insights/company-news/github-copilot-is-moving-to-usage-based-billing/) |
+| GitHub Copilot — auto model selection | [docs.github.com](https://docs.github.com/en/copilot/concepts/models/auto-model-selection) |
+| EditLess — the side project I mentioned | [github.com/cirvine-MSFT/editless](https://github.com/cirvine-MSFT/editless) |
+| My post — Skills pay the bills, but scripts ship | [/articles/skills-pay-the-bills-but-scripts-ship](/articles/skills-pay-the-bills-but-scripts-ship) |
+| My post — Plan big, execute auto | [/articles/plan-big-execute-auto-a-cheaper-way-to-run-github-copilot](/articles/plan-big-execute-auto-a-cheaper-way-to-run-github-copilot) |
