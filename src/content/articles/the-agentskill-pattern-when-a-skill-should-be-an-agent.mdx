@@ -9,7 +9,7 @@ youtubeId: "ZK3g5C17FUE"
 
 <div class="tldr-box">
 
-**TL;DR** — Take a task you'd normally write as a skill, implement it as a *separate agent* with a cheaper model and a narrow tool set, and let your main session delegate to it as a sub-agent. I've been calling this the **AgentSkill pattern** because I couldn't find an official name for it. The honest scorecard: you almost always get **isolated context**. You *sometimes* get cheaper runs and faster execution. And there's a fourth thing nobody puts on the whiteboard — **quality can quietly get worse**, and your token dashboard won't tell you. This post has the actual frontmatter for both Copilot and Claude Code, plus the gotchas that bit my team.
+**TL;DR** — Take a task you'd normally write as a skill, implement it as a *separate agent* with a cheaper model and a narrow tool set, and let your main session delegate to it as a sub-agent. I've been calling this the **AgentSkill pattern** because I couldn't find an official name for it. The honest scorecard: you almost always get **isolated context**. You *sometimes* get cheaper runs and faster execution — and to know which, you have to compare **combined credits**, not token counts, because a cheaper worker can burn more tokens and still cost less. Two things nobody puts on the whiteboard: quality can quietly get worse, and if the parent doesn't invoke your agent *by name*, your cheap model never runs at all. This post has the actual frontmatter for both Copilot and Claude Code, plus the gotchas that bit my team.
 
 </div>
 
@@ -64,7 +64,7 @@ Every tool available to a session costs context before the agent does anything. 
 
 ## Copilot: the two-file form
 
-In the Copilot ecosystem this is two files: the agent that does the work, and a thin skill that helps the harness find it.
+In the Copilot ecosystem this is two files: the agent that does the work, and a thin skill that nudges the parent toward calling it.
 
 Take the example from the video — my team has a pipeline RCA agent. When a build fails, it goes and pulls logs, digs through run history, pokes at Azure resources, and comes back with a root cause. The parent session, which is usually trying to *fix* the pipeline, doesn't need any of that raw material. It needs the conclusion.
 
@@ -115,6 +115,10 @@ Do not include raw log dumps. Do not propose a fix. The caller is doing that par
 
 Drop that in `.github/agents/pipeline-rca.agent.md` for the repo, or `~/.copilot/agents/` for your personal setup.
 
+That "What you return" section at the bottom is doing more work than it looks like. **Be strict about the return contract**, because left to their own devices workers will happily hand back the entire artifact, narrate every tool call they made, or — my favorite — report success on something they didn't actually finish. Any of those undoes the isolation, the token savings, or your trust in the output, respectively.
+
+A good return is boring: what ran, where the artifact landed, a status or a count, and maybe a hash if you care about integrity. The *thing itself* stays where the worker put it.
+
 A few notes on those fields, all from the [custom agents configuration reference](https://docs.github.com/en/copilot/reference/custom-agents-configuration):
 
 | Field | What it does for this pattern |
@@ -128,6 +132,8 @@ A few notes on those fields, all from the [custom agents configuration reference
 | `metadata` | Free-form annotation. Also ignored by IDE agents. |
 
 The `tools` list takes aliases, and they're case-insensitive: `read`, `edit`, `search`, `execute` (a.k.a. `shell` / `bash` / `powershell`), `web`, `todo`, and `agent` (which lets *this* agent delegate to another one — careful with that in a sub-agent). You can namespace MCP tools with `server-name/tool-name`, or pull in a whole server with `server-name/*`. Unrecognized tool names are ignored rather than erroring, which is handy for writing one agent file that works across harnesses.
+
+That last bit is also a trap, though. Tool names don't always match across agent frontmatter, whatever global tool filters your CLI applies, and the identifiers the runtime actually uses. And since a name it doesn't recognize gets silently dropped rather than shouted about, a typo in your allowlist looks identical to a tool that just isn't available. Run the thing end to end on the path you'll actually deploy, and confirm the worker really has what you think you gave it.
 
 > Fair warning, same as last time: frontmatter support is uneven across harnesses and it moves. `argument-hint` and `handoffs` work in VS Code but are ignored by the cloud agent. If your agent won't load, strip it back to `name` and `description` and add fields one at a time until you find the one that broke it.
 
@@ -233,13 +239,33 @@ I put "in theory" on the whiteboard for a reason. Here's how they've actually sh
 
 **Isolated context is the real product here.** Everything else is a maybe. If you adopt this pattern for the cost savings and don't check whether you got them, you may well be paying *more* for a worse result and feeling clever about it.
 
+### Measure credits, not tokens
+
+This one surprised me, so I'll save you the confusion: **a cheaper specialist can burn *more* total tokens and still cost you less.**
+
+That sounds contradictory until you remember you're paying different rates for different models. Handing a task to a cheap worker that takes a rambling path to the answer can still come out ahead of an expensive model taking a direct one. Which means raw token totals will sometimes tell you a winning trade looks like a loss.
+
+Look at three numbers separately:
+
+- What the **parent** spent.
+- What the **worker** spent.
+- The **combined** total.
+
+That last one is the only one that answers "was this worth it," and it's the one you're least likely to have on a dashboard.
+
+One more thing that belongs in that total: **retries.** Routing failures, wrong-model invocations, partial outputs, runs you abandoned halfway — those all cost real money and they're part of the honest accounting. It's very easy to re-run a shaky setup until you get a good result and then report *that* one. Don't do that to yourself.
+
 ## When it actually pays off
 
 The test I use now is the **overlap test**: *how much of the context the worker needs does the parent also need?*
 
 If the answer is "almost none," you win. The parent hands over an identifier, the worker goes and reads a bunch of stuff the parent never has to see, and a short summary comes back. The pipeline RCA case is exactly this — the parent is trying to *fix* the pipeline and genuinely does not need six log files in its context to do that.
 
-If the answer is "most of it," you lose. My favorite example of getting this wrong: "write the code, then delegate the tests to a cheaper agent." Sounds great. But the test-writing agent needs to load the same code, the same interfaces, and the same requirements the parent already has sitting in context. So you pay for that context twice, plus a round trip, plus a handoff summary — and then the parent has to load the tests anyway to check them. You got isolation you didn't need and paid a premium for it.
+If the answer is "most of it," you lose. My favorite example of getting this wrong: "write the code, then delegate the tests to a cheaper agent." Sounds great. But the test-writing agent needs the same code, the same interfaces, and the same requirements the parent already has sitting in context. You pay for that twice, plus a round trip, plus a handoff summary — and then the parent loads the tests anyway to check them. You bought isolation you didn't need.
+
+Which isn't a knock on delegating tests, to be clear. "Write one test file for this module, here are the three paths and the conventions" is a perfectly good AgentSkill. "Write tests for whatever we've been doing for the last hour" is not. The difference is entirely in how much the parent is already holding.
+
+The general version: **if the task you're delegating effectively contains the whole problem, that's not decomposition — it's model substitution.** You've moved the same work to a different model and added a round trip. Sometimes that's genuinely what you want. Just be honest that it's what you're doing.
 
 Good candidates look like:
 
@@ -249,6 +275,22 @@ Good candidates look like:
 - **Conclusion-shaped** — the parent needs the answer, not the work.
 
 Investigation, extraction, and summarization tasks fit well. "Continue what I was doing, but cheaper" does not.
+
+### Shape the handoff, don't just throw it over the wall
+
+The version that works for me is **one bounded read phase and one direct write.** The worker reads a known, small set of things; it writes the artifact itself; it returns a short status.
+
+Which means the parent's job is to hand over a real envelope, not a vibe: explicit paths so the worker doesn't go browsing (browsing is how a cheap specialist turns into an expensive one), the conventions and constraints enumerated rather than implied, what this worker owns and must not touch, and where the artifact goes.
+
+Having the worker write the artifact *directly* is the part people skip, and it matters: if the artifact comes back through the parent as text, it lands in the parent's context and you've undone the thing you were optimizing for.
+
+### Restrict the parent after the handoff, too
+
+This is the mistake I keep catching myself making. You do all the work to isolate the specialist… and then the parent re-reads the artifact to "check it," re-runs it, tidies it up, or writes its own summary of the summary.
+
+Congratulations, the context is back. You paid for a round trip and a second model to get an isolation benefit you then immediately gave away.
+
+What the parent does *after* delegation is a design decision, not an afterthought. Decide deliberately whether it's allowed to touch the artifact at all — and if you find it always needs to, that's a strong signal this task wanted to stay inline.
 
 ## The risk that isn't on the whiteboard
 
@@ -260,21 +302,48 @@ And the failure mode is nasty, because the metrics you're most likely to be watc
 
 So if you adopt this pattern, measure the artifact. Run the same task both ways, isolated and inline, and compare the *outputs* — not the spend. And do it in fresh sessions, because leftover context from building the thing will paper over gaps in your instructions and make the specialist look smarter than it is.
 
+**Validate outside the parent.** This is the part that makes the measurement actually work. The temptation is to have the parent read the artifact and tell you whether it's good — but now you're paying your expensive model to grade your cheap one, in the context you were trying to keep clean, using a judge that has every incentive to be agreeable. Push validation somewhere deterministic instead: CI, the existing test suite, schema validation, a linter, a script that checks the thing has the shape it's supposed to have. Zero AI involved. If production genuinely needs a model in that loop, fine — but make that a decision, not a default.
+
+**And pick the cheapest model that clears the bar, not the cheapest model.** Those aren't the same thing and I conflated them for a while. If the smallest option produces output that doesn't hold up, moving up a tier is the right call — but be aware that a strong enough specialist can erase the cost advantage entirely, at which point you're doing all this work for the context isolation alone. Which is a perfectly good reason! It's just a different reason than the one you started with, and worth noticing when it happens.
+
 Sometimes the honest answer is that the pattern doesn't pay for itself on this particular task. That's a fine outcome. It's just one you have to actually go looking for.
 
-## The discovery gotcha
+## The routing gotcha
 
-Last one, and it's the most practically annoying: **the harness doesn't reliably find your sub-agent.**
+Last one, and it's the one I got wrong for a while: I used to think the problem was that the harness *couldn't find* my sub-agent.
 
-You write the agent, you write a lovely description, you set up the perfect scenario — and the parent just… does the task itself. Never delegates.
+It's not. Discovery works fine — write a decent description and the harness will surface the skill and load it. What fails is **routing**.
 
-Three things that help, roughly in order of how often they've worked for me:
+Here's the thing that took me too long to internalize: **a skill is advisory prose aimed at the parent.** It is not a machine-enforced binding between a skill and an agent. Your routing skill says "delegate this to `pipeline-rca`" and then the parent, a language model, decides what to actually do with that suggestion. It might:
 
-1. **Add a wrapper skill.** This is the two-file thing from earlier. Skills get surfaced to the model in a way that makes them feel like available actions, so a thin routing skill dramatically improves the odds that your agent gets invoked. This is my default now.
-2. **Point at it from an instruction file.** An `AGENTS.md` or `copilot-instructions.md` that explicitly says "when you need X, delegate to the `Y` agent" gives the model a much stronger signal than the agent's own description does.
-3. **Keep a routing file.** If you've got several specialists, a single file listing them and when each applies works well. Same idea as the wrapper skill, just centralized.
+- Fire a *generic* task delegation instead of calling your named agent.
+- Pick a different default worker.
+- Load your skill again. And again.
+- Shrug and do the work itself inline.
 
-None of these are guaranteed. But going from "hope the harness notices" to "explicitly tell it, twice" has made this pattern go from flaky to mostly-reliable for us.
+And here's the consequence that matters, because it undermines the entire premise of the pattern:
+
+> **The `model:` in your agent file only takes effect once that exact agent is selected.**
+
+If the parent fires a generic delegation instead of naming your specialist, your cheap model never governs anything. The work happens on the parent's expensive model, in a sub-context you thought was configured. You get the isolation. You don't get the savings. And nothing in the output tells you — the summary comes back looking exactly like it was supposed to.
+
+So treat routing adherence as part of *correctness*, not implementation trivia. When you're validating this pattern, check three things independently:
+
+1. Which agent did the parent **request**?
+2. Which agent actually **ran**?
+3. Which model did it actually run **on**?
+
+Those three can disagree, and every combination of disagreement costs you something different.
+
+### What actually helps
+
+1. **Add a wrapper skill.** Still my default. It gives the parent a concise entry point and stops me duplicating the same instructions into every prompt. But be honest about what it buys you: better odds, not a guarantee. It can't stop generic delegation or a fallback to a different worker.
+2. **Point at it from an instruction file.** An `AGENTS.md` or `copilot-instructions.md` that says "when you need X, delegate to the `Y` agent — by name" is a stronger signal than the agent's own description.
+3. **Keep a routing file.** If you've got several specialists, one file listing them and when each applies works well. Same idea, centralized.
+
+Stacking all three took this from flaky to mostly-reliable for us. *Mostly.*
+
+What would actually fix it is a first-class operation that binds a skill to exactly one agent, one model, and one tool allowlist — deterministically, without asking a language model to please remember. Until then, this is prose-directed selection, and prose-directed selection is probabilistic. Build your expectations accordingly.
 
 ## Tools and docs
 
@@ -290,7 +359,14 @@ None of these are guaranteed. But going from "hope the harness notices" to "expl
 
 Pick one bounded task you already do repeatedly — a log investigation, an extraction, a "go read this and tell me what it says" job. Write the agent file with a cheaper model and a deliberately stingy tool list. Add the wrapper skill so it actually gets invoked.
 
-Then run the same task both ways and compare the **outputs**, not the token counts. If the isolated version is as good, you've got a keeper. If it isn't, you've learned something more useful than a savings number.
+Then run it and check four things:
+
+1. **Did your agent actually run?** Not a generic delegation — yours, by name, on the model you specified.
+2. **What did it cost, combined?** Parent plus worker, in credits. Not tokens.
+3. **Is the output as good?** Compare against doing it inline, in a fresh session.
+4. **Did the parent stay out of it?** Or did it re-read the artifact and undo your isolation?
+
+If all four hold up, you've got a keeper. If they don't, you've learned something more useful than a savings number.
 
 And seriously — if this pattern already has a real name, come tell me. I'd much rather use the right word than keep making one up.
 

@@ -167,7 +167,14 @@ pre.mermaid:not([data-processed="true"]) {
   margin-bottom: 0.75rem;
 }
 .prose p { line-height: 1.8; color: var(--color-text-secondary); margin-bottom: 1.25rem; }
-.prose ul, .prose ol { color: var(--color-text-secondary); margin-bottom: 1.25rem; }
+.prose ul, .prose ol { color: var(--color-text-secondary); margin-bottom: 1.25rem; padding-left: 1.5rem; }
+.prose ul { list-style: disc; }
+.prose ol { list-style: decimal; }
+.prose ul ul { list-style: circle; }
+.prose li { margin-bottom: 0.5rem; line-height: 1.7; }
+.prose li:last-child { margin-bottom: 0; }
+.prose li::marker { color: var(--color-accent-purple); }
+.prose li > ul, .prose li > ol { margin-top: 0.5rem; margin-bottom: 0; }
 .prose strong { color: var(--color-text-primary); }
 .prose img { border-radius: 8px; }
 .prose .tldr-box {
