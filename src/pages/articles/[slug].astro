@@ -20,6 +20,7 @@ const { Content } = await render(article);
   pubDate: article.data.pubDate.toISOString(),
   tags: article.data.tags,
   youtubeId: article.data.youtubeId,
+  draft: article.data.draft,
 }}>
   <Content />
 </ArticleLayout>

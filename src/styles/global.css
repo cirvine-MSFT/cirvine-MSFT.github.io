@@ -125,6 +125,29 @@ pre code {
   padding: 0;
 }
 
+/* Mermaid diagrams — rendered client-side by astro-mermaid into pre.mermaid */
+pre.mermaid {
+  background: var(--color-bg-secondary) !important;
+  border: 1px solid rgba(168, 85, 247, 0.18);
+  border-radius: 12px;
+  padding: 1.5rem 1rem;
+  margin: 2rem 0;
+  display: flex;
+  justify-content: center;
+  overflow-x: auto;
+  text-align: center;
+  line-height: normal;
+}
+pre.mermaid svg {
+  max-width: 100%;
+  height: auto;
+}
+/* Hide the raw diagram source until mermaid swaps in the SVG */
+pre.mermaid:not([data-processed="true"]) {
+  color: transparent;
+  min-height: 200px;
+}
+
 /* Article prose */
 .prose h1, .prose h2, .prose h3 {
   color: var(--color-text-primary);
@@ -144,7 +167,14 @@ pre code {
   margin-bottom: 0.75rem;
 }
 .prose p { line-height: 1.8; color: var(--color-text-secondary); margin-bottom: 1.25rem; }
-.prose ul, .prose ol { color: var(--color-text-secondary); margin-bottom: 1.25rem; }
+.prose ul, .prose ol { color: var(--color-text-secondary); margin-bottom: 1.25rem; padding-left: 1.5rem; }
+.prose ul { list-style: disc; }
+.prose ol { list-style: decimal; }
+.prose ul ul { list-style: circle; }
+.prose li { margin-bottom: 0.5rem; line-height: 1.7; }
+.prose li:last-child { margin-bottom: 0; }
+.prose li::marker { color: var(--color-accent-purple); }
+.prose li > ul, .prose li > ol { margin-top: 0.5rem; margin-bottom: 0; }
 .prose strong { color: var(--color-text-primary); }
 .prose img { border-radius: 8px; }
 .prose .tldr-box {
