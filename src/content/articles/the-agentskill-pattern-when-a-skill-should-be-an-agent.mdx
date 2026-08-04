@@ -9,7 +9,7 @@ youtubeId: "ZK3g5C17FUE"
 
 <div class="tldr-box">
 
-**TL;DR** — Take a task you'd normally write as a skill, implement it as a *separate agent* with a cheaper model and a narrow tool set, and let your main session delegate to it as a sub-agent. I've been calling this the **AgentSkill pattern** because I couldn't find an official name for it. The honest scorecard: you almost always get **isolated context**. You *sometimes* get cheaper runs and faster execution — and to know which, you have to compare **combined credits**, not token counts, because a cheaper worker can burn more tokens and still cost less. Two things nobody puts on the whiteboard: quality can quietly get worse, and if the parent doesn't invoke your agent *by name*, your cheap model never runs at all. This post has the actual frontmatter for both Copilot and Claude Code, plus the gotchas that bit my team.
+**TL;DR** — Take a task you'd normally write as a skill, implement it as a *separate agent* with a cheaper model and a narrow tool set, and let your main session delegate to it as a sub-agent. I've been calling this the **AgentSkill pattern** because I couldn't find an official name for it. When the task suits it, this is one of the better levers I've got: you get **isolated context** almost every time, plus cheaper and often faster runs on top. Whether you get that second part comes down to two questions — is the task well-bounded and mostly *independent* of what the parent already has in context, and does a cheaper model actually do it well enough? Answer yes to both and it's a clear win. This post has the actual frontmatter for both Copilot and Claude Code, how to tell a good candidate from a bad one, and the gotchas that bit my team.
 
 </div>
 
@@ -35,12 +35,13 @@ Here's the whiteboard from the video, cleaned up:
 ```mermaid
 sequenceDiagram
     participant P as Agent / Session
-    participant S as Skill (routing)
+    participant S as Routing guidance
     participant W as AgentSkill Agent
 
     Note over P: Step 1, Step 2
-    P->>S: Step 3 — is there a specialist for this?
-    S->>P: yes, route to the AgentSkill agent
+    P->>S: Step 3 — reads the skill / instruction file
+    S-->>P: "for this, call the AgentSkill agent by name"
+    Note over P: parent decides whether to follow it
     P->>W: context + task
     Note over W: Cheaper model, narrow tools, fresh context
     W->>W: does the work in its own context
@@ -48,9 +49,11 @@ sequenceDiagram
     Note over P: Step 4, Step 5 — never saw the messy middle
 ```
 
-Your main session is chugging through a multi-step task. At step three, the harness notices there's an AgentSkill available for this. It hands off — some context plus the task — to a sub-agent that runs on a cheaper model with a deliberately small set of tools. That sub-agent does the work in its *own* context, writes up a summary, and hands the summary back. Your parent session picks up at step four having never loaded any of the intermediate mess.
+Your main session is chugging through a multi-step task. At step three, it recognizes there's a specialist for this — because you gave it something to recognize, whether that's a routing skill, an instruction file, or an agents doc. The parent then calls that agent *by name*, handing over some context plus the task. The sub-agent runs on a cheaper model with a deliberately small set of tools, does the work in its *own* context, writes up a summary, and hands the summary back. Your parent picks up at step four having never loaded any of the intermediate mess.
 
 That last part is the whole point.
+
+It's also worth being precise about who's doing what in that first step, because it's the thing that trips people up later: **the harness doesn't route. It makes options available.** Your guidance gets surfaced to the model along with everything else, and what comes back is a *choice* — not a guarantee. That distinction is invisible when it works and extremely visible when it doesn't, which is why there's a whole section on it below.
 
 ## Why it has to be an agent
 
@@ -115,6 +118,8 @@ Do not include raw log dumps. Do not propose a fix. The caller is doing that par
 
 Drop that in `.github/agents/pipeline-rca.agent.md` for the repo, or `~/.copilot/agents/` for your personal setup.
 
+> That's an illustrative version, to be clear. The one my team actually runs is considerably more specific — which pipelines we care about, where our logs actually live, which Azure resources are worth checking, the failure patterns we've been bitten by before. I've stripped all of that out because it'd be meaningless to you. But don't mistake the skeleton for the thing: **the specificity is where the value is.** A generic "go investigate the build" agent isn't meaningfully cheaper or better than just asking the parent to do it. What makes a specialist worth the round trip is that it knows things the parent would otherwise have to go learn.
+
 That "What you return" section at the bottom is doing more work than it looks like. **Be strict about the return contract**, because left to their own devices workers will happily hand back the entire artifact, narrate every tool call they made, or — my favorite — report success on something they didn't actually finish. Any of those undoes the isolation, the token savings, or your trust in the output, respectively.
 
 A good return is boring: what ran, where the artifact landed, a status or a count, and maybe a hash if you care about integrity. The *thing itself* stays where the worker put it.
@@ -123,7 +128,7 @@ A few notes on those fields, all from the [custom agents configuration reference
 
 | Field | What it does for this pattern |
 | --- | --- |
-| `description` | **Required**, and it's load-bearing. This is what the harness reads when deciding whether to delegate. Write it as "use this when…" not "this is a thing that…" |
+| `description` | **Required**, and it's load-bearing. This is what the parent model reads when deciding whether to delegate. Write it as "use this when…" not "this is a thing that…" |
 | `model` | The whole reason you're doing this. If unset, the agent inherits the parent's model and you've saved nothing. |
 | `tools` | Your context budget. Omit it or use `["*"]` and you get everything. Use `[]` to get nothing. |
 | `user-invocable` | Set `false` if this should only ever be called programmatically by another agent, never picked from a menu. |
@@ -139,7 +144,7 @@ That last bit is also a trap, though. Tool names don't always match across agent
 
 ### The routing skill
 
-This second file is the fix for a problem I'll get to below — the harness not reliably finding your agent. Its entire job is to be discoverable.
+This second file is the fix for a problem I'll get to below — the parent not reliably calling your agent. Its entire job is to put the suggestion in front of the model at the right moment.
 
 ```yaml
 ---
@@ -229,15 +234,15 @@ These are all in the docs, but they're easy to skim past and each one has cost m
 
 ## The benefits, honestly ranked
 
-I put "in theory" on the whiteboard for a reason. Here's how they've actually shaken out for me:
+I put "in theory" on the whiteboard for a reason — but "in theory" doesn't mean "roll the dice." Each of these depends on something specific, and you can check for it up front:
 
-| Benefit | How reliable? |
+| Benefit | You get it when… |
 | --- | --- |
-| **Isolated context** | Nearly always. This is the one you can count on. |
-| **Fewer credits** | Sometimes. Depends heavily on how much context gets duplicated. |
-| **Faster wall-clock** | Sometimes. A cheaper model is faster per token, but you've added a round trip. |
+| **Isolated context** | Basically always. This one's structural — it comes with the handoff. |
+| **Fewer credits** | The worker's context barely overlaps the parent's. Duplicated context is what eats the savings. |
+| **Faster wall-clock** | The worker's job is one compact pass. A long stateful tool loop erases the gain. |
 
-**Isolated context is the real product here.** Everything else is a maybe. If you adopt this pattern for the cost savings and don't check whether you got them, you may well be paying *more* for a worse result and feeling clever about it.
+**Isolated context is the floor.** The other two are upside, and you earn them with task selection rather than luck — which is the whole point of the next section. What you shouldn't do is assume they showed up. Adopt the pattern for the cost savings, never check, and you can end up paying *more* for a worse result while feeling clever about it.
 
 ### Measure credits, not tokens
 
@@ -286,11 +291,13 @@ Having the worker write the artifact *directly* is the part people skip, and it 
 
 ### Restrict the parent after the handoff, too
 
-This is the mistake I keep catching myself making. You do all the work to isolate the specialist… and then the parent re-reads the artifact to "check it," re-runs it, tidies it up, or writes its own summary of the summary.
+This one's easy to miss. You do all the work to isolate the specialist… and then the parent re-reads the artifact to "check it," re-runs it, tidies it up, or writes its own summary of the summary.
 
 Congratulations, the context is back. You paid for a round trip and a second model to get an isolation benefit you then immediately gave away.
 
-What the parent does *after* delegation is a design decision, not an afterthought. Decide deliberately whether it's allowed to touch the artifact at all — and if you find it always needs to, that's a strong signal this task wanted to stay inline.
+To be fair, there are absolutely times you *want* the parent validating the child's work — the stakes are high, the output feeds directly into the next step, you don't trust the specialist yet. That's a legitimate call. Just be clear-eyed that in this pattern it eats most of what you came for: the parent has to load the artifact to judge it, which is the context you were isolating, and it judges on the expensive model, which is the spend you were avoiding. You've kept the round trip and given back the savings.
+
+If you need validation, prefer somewhere outside the parent for it — which is the next section. And if you find the parent *always* needs to check the work, that's a strong signal this task wanted to stay inline.
 
 ## The risk that isn't on the whiteboard
 
@@ -314,7 +321,7 @@ Last one, and it's the one I got wrong for a while: I used to think the problem 
 
 It's not. Discovery works fine — write a decent description and the harness will surface the skill and load it. What fails is **routing**.
 
-Here's the thing that took me too long to internalize: **a skill is advisory prose aimed at the parent.** It is not a machine-enforced binding between a skill and an agent. Your routing skill says "delegate this to `pipeline-rca`" and then the parent, a language model, decides what to actually do with that suggestion. It might:
+Here's the thing that took me too long to internalize: **a skill is advisory prose, not a binding.** Nothing mechanically connects a skill to an agent. Your routing skill says "delegate this to `pipeline-rca`," that text goes into the prompt alongside everything else, and what comes back is a decision that might not be the one you wanted. It might:
 
 - Fire a *generic* task delegation instead of calling your named agent.
 - Pick a different default worker.
@@ -343,7 +350,19 @@ Those three can disagree, and every combination of disagreement costs you someth
 
 Stacking all three took this from flaky to mostly-reliable for us. *Mostly.*
 
-What would actually fix it is a first-class operation that binds a skill to exactly one agent, one model, and one tool allowlist — deterministically, without asking a language model to please remember. Until then, this is prose-directed selection, and prose-directed selection is probabilistic. Build your expectations accordingly.
+What would actually fix it is a first-class operation that binds a skill to exactly one agent, one model, and one tool allowlist — enforced by the harness, rather than described in prose and hoped for. Until then, this is prose-directed selection, and prose-directed selection is probabilistic. Build your expectations accordingly.
+
+## The side benefit: it's already automation-shaped
+
+Here's something I didn't plan for and now actively design toward. **Once you have a good AgentSkill, you've also got a unit of automation.**
+
+Look back at what makes a task a good candidate for this pattern: bounded, narrow well-defined inputs, doesn't need conversation history, produces a checkable artifact, returns a compact result. That's the same list you'd write if someone asked what makes a task safe to run *unattended*. Which means a specialist that behaves as a sub-agent will usually behave just fine when the thing calling it isn't a parent session at all — it's a trigger.
+
+Take the pipeline RCA agent. Right now it waits for someone to notice a red build and go ask about it. But nothing about it requires a human in the loop. We can wire up a workflow so that when a pipeline fails, it files a bug and then runs `pipeline-rca` against the failed run, dropping the analysis straight onto the ticket. By the time anyone opens it, the root cause is already sitting there waiting.
+
+Same agent file. No changes. The only difference is who called it.
+
+That's also a decent argument for building the specialist in cases where the inline-versus-delegated math comes out close to even. If the delegated version costs about the same as doing it in the parent, but it can *also* run at 3am without you, that's not really even.
 
 ## Tools and docs
 
