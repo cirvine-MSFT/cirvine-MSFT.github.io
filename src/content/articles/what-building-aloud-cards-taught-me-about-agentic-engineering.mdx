@@ -63,6 +63,10 @@ That pacing mattered because most of the risk was not inside one change. It was 
 - A test that passed before another pull request changed the flow.
 - Several individually reasonable changes that felt strange when used together.
 
+There was a code-quality benefit too. When several agents build features in isolation, each one tends to solve the problem in front of it. That can mean repeated helpers, competing abstractions, or the same bit of state managed three different ways. You can avoid some of that with very careful prompts, but I would rather not make perfect prompting the only thing holding the architecture together.
+
+Merging changes in smaller layers gave the next agent a stronger foundation to build on. It could reuse the infrastructure that had already landed, notice when a pattern wanted to become a shared abstraction, and refactor with a clearer view of the whole app. The code became more modular because the agents were extending one evolving system instead of delivering a pile of isolated solutions.
+
 This was a solo project built over evenings and weekends. I needed to understand what was changing more than I needed a wall of activity. Keeping the queue small made that possible.
 
 ## My "touch grass" scripts
