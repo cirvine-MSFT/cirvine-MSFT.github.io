@@ -10,6 +10,7 @@ const articles = defineCollection({
     tags: z.array(z.string()).optional().default([]),
     draft: z.boolean().optional().default(false),
     youtubeId: z.string().optional(),
+    series: z.enum(['overcut']).optional(),
   }),
 });
 
