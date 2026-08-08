@@ -1,0 +1,184 @@
+---
+title: "What Building Aloud Cards Taught Me About Agentic Engineering"
+description: "I built and shipped an offline, voice-driven flashcard app with AI agents. Here is what worked, what I would change, and why shorter feedback loops mattered more than running more agents."
+pubDate: 2026-08-08
+tags: ["AI", "Workflow", "Developer Tools", "GitHub Copilot"]
+draft: false
+youtubeId: "UHytGOoRqh4"
+---
+
+<div class="tldr-box">
+
+**TL;DR** — Building Aloud Cards with AI agents worked best when I treated it like a regular software project: prove the risky part first, keep the number of changes in flight small, automate the boring checks, and use the app constantly. The biggest thing I would change is giving the agents more control over the running app earlier. Unit tests helped, but a voice-driven UI needs a real end-to-end feedback loop.
+
+</div>
+
+## This started with a stack of real flashcards
+
+I built [Aloud Cards](https://aloudcards.com/) because I wanted a digital version of how I already practiced flashcards with my kids.
+
+I show a card. They say the answer. I tell them whether they got it right. If they miss it, the card goes back into the deck. If they get it, we can put it aside and keep going.
+
+The app does the same thing for math facts, sight words, and custom word sets. The important part is that the child answers with their voice instead of tapping a multiple-choice button. The app can also read the card aloud, which keeps the whole experience focused on hearing, recalling, and speaking.
+
+In the video, I walk through that flow and then get into the development process. I used GitHub Copilot agents for a lot of the implementation, but the useful lessons were less about a particular model and more about the feedback loops around it.
+
+The product sounds simple. The part underneath it was not.
+
+## Offline was a design constraint, not a feature
+
+This is a kids' app that listens to a microphone. I wanted the privacy boundary to be boring and obvious.
+
+During practice, the child's voice, recognized answer, profile, custom cards, and progress stay on the device. [Vosk](https://alphacephei.com/vosk/) handles speech recognition locally, and [Piper text-to-speech through sherpa-onnx](https://k2-fsa.github.io/sherpa/onnx/tts/index.html) reads the prompts locally. Audio recordings and transcripts are not saved.
+
+There are two narrow network exceptions worth being precise about:
+
+- The app downloads its speech models when they are not already installed. After that, core practice works offline from the verified local copies.
+- A grown-up can deliberately submit feedback from Settings. That form does not include child audio, transcripts, answers, profiles, custom cards, or practice progress.
+
+That is a little longer than saying "nothing ever touches the network," but it is also accurate. The full details are in the [Aloud Cards privacy policy](https://aloudcards.com/privacy/).
+
+## Prototype the weird part first
+
+Before I built a Flutter app, a Windows package, achievements, profiles, or anything that looked like a product, I made a small Python prototype.
+
+It had one job: prove that an offline speech model could recognize the short answers my kids would actually say.
+
+That prototype was intentionally disposable. I did not need the right architecture or a polished interface. I needed to know whether the central interaction worked at all. If local speech recognition could not reliably handle a child saying numbers and sight words, every other feature idea was irrelevant.
+
+I have made the opposite mistake before. When I built Editless, I had a pile of ideas and tried to move too many of them at once. It felt fast because a lot was happening. It was harder to tell whether the pieces were becoming one coherent product.
+
+Aloud Cards started with the risky assumption instead. That one decision saved a lot of wandering later.
+
+## More agents did not mean more progress
+
+Once the prototype worked, I still had no shortage of features to build. The difference was how many I let move at the same time.
+
+I usually kept two or three sessions or pull requests in flight. I would test and merge a small batch, update the remaining branches, and then start the next batch. I was not trying to set a personal record for concurrent agents.
+
+That pacing mattered because most of the risk was not inside one change. It was where changes overlapped:
+
+- Two branches editing the same screen.
+- A feature built against an old version of the app state.
+- A test that passed before another pull request changed the flow.
+- Several individually reasonable changes that felt strange when used together.
+
+There was a code-quality benefit too. When several agents build features in isolation, each one tends to solve the problem in front of it. That can mean repeated helpers, competing abstractions, or the same bit of state managed three different ways. You can avoid some of that with very careful prompts, but I would rather not make perfect prompting the only thing holding the architecture together.
+
+Merging changes in smaller layers gave the next agent a stronger foundation to build on. It could reuse the infrastructure that had already landed, notice when a pattern wanted to become a shared abstraction, and refactor with a clearer view of the whole app. The code became more modular because the agents were extending one evolving system instead of delivering a pile of isolated solutions.
+
+This was a solo project built over evenings and weekends. I needed to understand what was changing more than I needed a wall of activity. Keeping the queue small made that possible.
+
+## My "touch grass" scripts
+
+Automated tests are useful. They are not the same as using the product.
+
+I put a `scripts` folder at the top of the repository with obvious entry points for the things I did repeatedly:
+
+```text
+scripts/
+  build-windows.ps1
+  download-models.ps1
+  launch.ps1
+```
+
+The command I used most was the least exciting one:
+
+```powershell
+.\scripts\launch.ps1
+```
+
+That script prepares the local models, builds the current branch, and launches the app. I do not have to remember where Flutter put the executable, whether the models are ready, or which lower-level command comes next.
+
+I call these **touch-grass scripts** because they force the work out of the agent conversation and into the real product. I can switch to a branch, run one command, and try the change the same way a user would.
+
+The exact script does not matter. The cheap feedback loop does.
+
+If launching your app requires opening an old wiki page, copying four commands, fixing an environment variable, and remembering one weird flag, you will test less often. Your agents will too. Put the paved path where everybody can see it.
+
+## I added the boring infrastructure early
+
+Aloud Cards had CI/CD before it felt like it needed CI/CD.
+
+Pull requests run the Flutter test suite and repository checks. Another workflow builds the Windows release. Separate packaging workflows create the artifacts used for dogfooding and the Microsoft Store.
+
+I also worked through pull requests instead of treating `main` like a shared scratchpad. That gave every change a place for the automated checks and my manual notes before I merged it.
+
+> This did not require a complicated governance setup. I made pull requests the default path and kept the checks and merge routine consistent, even on a one-person project.
+
+[GitHub Actions](https://docs.github.com/en/actions/get-started/understand-github-actions) calls this CI/CD. For me, it was mostly external memory. Agents were producing a lot of the code, so I wanted a consistent machine to remember the checks I might forget:
+
+- Does the Flutter test suite still pass?
+- Can the Windows release still build?
+- Can I produce the package I expect to ship?
+
+The green checks did not replace manual testing. They made manual testing more useful because I could spend my attention on the interaction instead of repeatedly proving that the project compiled.
+
+## Let the agent see what it built
+
+One of the most useful loops was giving an agent a screenshot of the UI it had just produced.
+
+The code might say that a column is centered, the spacing uses the design tokens, and the button sits under the card. A screenshot can still reveal that the page feels lopsided, the hierarchy is weak, or the important action is getting lost.
+
+When the agent could see the rendered result, it critiqued the UI differently than when it only saw the layout code. It would notice visual problems, make a pass, capture another screenshot, and improve it again.
+
+This did not turn the model into a designer. It gave the model evidence.
+
+That distinction applies beyond UI work. Agents get better when they can observe the consequence of a change, not just the source that describes the change.
+
+## What I should have built earlier
+
+I had pieces of an agent-driven test harness, but not enough of one.
+
+Agents could run tests. In some flows they could launch the app and capture screenshots. They could not reliably control the whole product: move between screens, seed a known profile and deck, start a practice session, provide deterministic audio input, and verify the result.
+
+That left too much of the end-to-end loop with me. For a voice-driven app, the gap is especially obvious. A widget test can verify that the right control exists. It cannot prove that a child can launch the app, hear a card, answer it, and get the right response.
+
+If I started again, I would build debug-only control points alongside the first real screens:
+
+1. Start the app in a known state.
+2. Navigate through the same paths a user takes.
+3. Replace microphone and speech services with deterministic test inputs.
+4. Capture screenshots at meaningful checkpoints.
+5. Assert the final app state, not just that a button was tapped.
+
+Flutter has an official [integration testing path](https://docs.flutter.dev/testing/integration-tests), but the framework is only part of the work. The application still needs clean seams around the microphone, speech recognizer, model bootstrap, and local state.
+
+I am adding more of those seams now. I just wish I had treated them as product infrastructure from the beginning instead of a testing upgrade for later.
+
+## What comes next
+
+The next work is not a list of regrets. It is where the same constraints go next:
+
+- **Android.** Bring the voice-first flow to a platform where more families already have a device nearby.
+- **On-device model experiments.** Keep evaluating speech and voice models without weakening the offline privacy boundary.
+- **Cards and indexes.** Revisit how the growing set of built-in and custom content is organized.
+
+The Windows version is [available now in Microsoft Store](https://apps.microsoft.com/detail/9PFMT0W786DR). Shipping it gave me something better than another architecture diagram: a real product with real constraints to learn from.
+
+## Tools and resources
+
+| Resource | Why it matters |
+| --- | --- |
+| [Aloud Cards](https://aloudcards.com/) | Product overview, privacy policy, support, and updates |
+| [Aloud Cards in Microsoft Store](https://apps.microsoft.com/detail/9PFMT0W786DR) | The shipped Windows app |
+| [Vosk](https://alphacephei.com/vosk/) | Offline speech-recognition toolkit |
+| [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) | Cross-platform, local speech and text-to-speech runtime |
+| [Flutter integration testing](https://docs.flutter.dev/testing/integration-tests) | Official end-to-end testing guidance |
+| [GitHub Actions](https://docs.github.com/en/actions/get-started/understand-github-actions) | Build, test, and packaging automation |
+
+## Try one thing
+
+Add one obvious command at the top of your repository that builds and launches the product from your current local changes.
+
+Do not make it perfect. Give it the boring name everyone will guess, put the setup inside it, and use it after your next agent-built change.
+
+Then look at what actually launched.
+
+## Closing thought
+
+The biggest lesson from Aloud Cards was not that agents can build a Windows app. They can.
+
+The lesson was that agentic engineering still needs regular engineering discipline. More parallel sessions did not make me confident. A working prototype, a small queue, repeatable checks, and frequent contact with the real app did.
+
+The agents made the code move faster. The feedback loops made it a product.
