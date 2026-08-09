@@ -1,0 +1,59 @@
+---
+import { getCollection } from 'astro:content';
+import ArticleCard from '../../components/ArticleCard.astro';
+import { seriesMetadata } from '../../data/series';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+
+const series = seriesMetadata.overcut;
+const articles = (await getCollection(
+  'articles',
+  ({ data }) => data.series === 'overcut' && (import.meta.env.DEV || !data.draft),
+)).sort((a, b) => b.data.pubDate.getTime() - a.data.pubDate.getTime());
+---
+
+<BaseLayout title={series.title} description={series.description} noindex={articles.length === 0}>
+  <section class="mb-12">
+    <p
+      class="text-sm uppercase tracking-widest mb-3"
+      style="color: var(--color-accent-green);"
+    >
+      Development journal
+    </p>
+    <h1 class="text-4xl font-bold mb-4" style="color: var(--color-text-primary);">
+      {series.title}
+    </h1>
+    <p class="max-w-2xl mb-6" style="color: var(--color-text-secondary);">
+      {series.description}
+    </p>
+    <a
+      href="https://overcut.racing/"
+      target="_blank"
+      rel="noopener"
+      class="inline-block text-sm font-semibold"
+      style="color: var(--color-accent-purple);"
+    >
+      Explore the game at overcut.racing →
+    </a>
+  </section>
+
+  {articles.length === 0 ? (
+    <div class="glass-card p-8 text-center">
+      <p class="text-lg" style="color: var(--color-text-muted);">
+        The first entry is still in the garage.
+      </p>
+    </div>
+  ) : (
+    <div class="grid gap-6 md:grid-cols-2">
+      {articles.map((article) => (
+        <ArticleCard
+          title={article.data.title}
+          description={article.data.description}
+          pubDate={article.data.pubDate.toISOString()}
+          slug={article.id}
+          tags={article.data.tags}
+          draft={article.data.draft}
+        />
+      ))}
+    </div>
+  )}
+</BaseLayout>

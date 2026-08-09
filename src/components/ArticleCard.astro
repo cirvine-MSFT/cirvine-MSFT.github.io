@@ -5,9 +5,10 @@ interface Props {
   pubDate: string;
   slug: string;
   tags?: string[];
+  draft?: boolean;
 }
 
-const { title, description, pubDate, slug, tags } = Astro.props;
+const { title, description, pubDate, slug, tags, draft = false } = Astro.props;
 const formattedDate = new Date(pubDate).toLocaleDateString('en-US', {
   year: 'numeric',
   month: 'short',
@@ -17,9 +18,19 @@ const formattedDate = new Date(pubDate).toLocaleDateString('en-US', {
 ---
 
 <a href={`/articles/${slug}`} class="block glass-card p-6 group">
-  <p class="text-xs uppercase tracking-widest mb-2" style="color: var(--color-text-muted);">
-    {formattedDate}
-  </p>
+  <div class="flex items-center gap-2 mb-2">
+    <p class="text-xs uppercase tracking-widest" style="color: var(--color-text-muted);">
+      {formattedDate}
+    </p>
+    {draft && (
+      <span
+        class="text-xs uppercase tracking-widest px-2 py-0.5 rounded-full"
+        style="background: rgba(57,255,20,0.1); color: var(--color-accent-green);"
+      >
+        Draft
+      </span>
+    )}
+  </div>
   <h3 class="text-lg font-semibold mb-2 group-hover:text-[var(--color-accent-green)] transition-colors" style="color: var(--color-text-primary);">
     {title}
   </h3>

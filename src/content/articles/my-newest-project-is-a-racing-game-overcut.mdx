@@ -1,0 +1,129 @@
+---
+title: "My Newest Project Is a Racing Game: Overcut"
+description: "I'm building Overcut, a collisionless team racing game—and using the project to learn what solo game development looks like in the agentic engineering era."
+pubDate: 2026-08-08
+tags: ["Game Development", "AI", "Unreal Engine", "Overcut"]
+series: "overcut"
+draft: false
+---
+
+<div class="tldr-box">
+
+**TL;DR** — My newest project is [Overcut](https://overcut.racing/), a serious, collisionless team racing game. I'm building it with Unreal Engine 5.8 and GitHub Copilot, with plans to use Aspire and Azure when the game needs online services. This series is where I'll share the personal and engineering side of trying to get it across the finish line.
+
+</div>
+
+<figure>
+  <img
+    src="https://overcut.racing/images/overcut-hero.webp"
+    alt="Overcut concept art showing futuristic race cars competing on a circuit at night"
+    width="1536"
+    height="640"
+  />
+  <figcaption>
+    AI-generated concept art for Overcut. This is not gameplay footage or a final production asset.
+  </figcaption>
+</figure>
+
+## I've Been Trying to Make a Game for a While
+
+Video games have been part of my life for as long as I can remember. I've also tried to make one more than once.
+
+Those attempts have gone about as well as a lot of side projects go. I would start with a big idea, make some progress, and then life would happen. At one point I was even convinced I should build my own game engine first, which is a very efficient way to avoid building a game.
+
+I'm a programmer, but I'm not a game developer. I don't have a shipped title, a studio, or a secret vault full of finished art. What I do have is a game I want to exist, a lot of things I want to learn, and better tools than I had during any of those previous attempts.
+
+So I'm trying again.
+
+## The Game I Want to Exist
+
+[Overcut](https://overcut.racing/) is a serious, simulation-inspired circuit racer built around a bigger question: **can you remove some of the most frustrating barriers in sim racing, add teamwork, strategy, distinct characters, and abilities on top of driving skill, and still make a competitive game that feels great to race?**
+
+I love motorsports and sim racing, but one of the worst feelings in a racing game is watching a whole race disappear in one moment. Maybe a new driver misses a braking point. Maybe two experienced drivers make different assumptions. Maybe the network decides both cars occupy the same patch of asphalt. Sometimes somebody is just being a jerk.
+
+Whatever the reason, a lot of preparation can turn into a spin, a damaged car, or an early exit. Figuring out fault after the fact is difficult, and assigning blame does not give anyone the race back.
+
+Making player cars collisionless is one of the biggest design choices toward that goal. Driving mistakes still matter. Barriers still exist. Braking, consistency, tire management, pit strategy, and outright pace should still decide whether you gain or lose time. Another driver just cannot erase your race by touching your car.
+
+The other part of the idea is team play. Most racing games I've played celebrate individual performance first. I want Overcut to keep that individual skill while making the shared result matter too. Distinct driver characters will have abilities that help themselves or their teammates, but not weapons or effects that sabotage another car.
+
+That is the short version. The deeper design philosophy lives at [overcut.racing](https://overcut.racing/), and it will keep evolving as the game becomes something we can actually play.
+
+## A Player Decision and a Development Shortcut
+
+Collisionless racing is not only a player-facing decision. It also removes one of the nastier technical problems from a multiplayer racing game.
+
+Car contact is more than detecting that two objects overlap. A networked game has to decide which machine has authority, reconcile what each driver saw, resolve the forces in a believable way, and keep one impact from turning into a completely different chain reaction on every player's screen. Then you get to think about damage, recovery, penalties, and whether the result was fair. Good times.
+
+Overcut will still need collision with the circuit, barriers, and the rest of the environment. Making player cars pass through one another means I do not have to solve that same contact problem between remote players. It removes a whole family of bugs and edge cases while supporting the experience I want for the people racing.
+
+That kind of tradeoff is going to matter a lot on a solo project. If a design choice makes the game friendlier **and** gives me a better chance of finishing it, I am very interested in that choice.
+
+## This Is an Experiment, Not a Release Date
+
+Overcut is starting early, and I'm building it in Unreal Engine 5.8. The direction is clear, but I expect a lot of the details to change as I learn what the game needs to be.
+
+The goal is to prove that the concept is fun, not to pretend I already know exactly where it ends.
+
+I would love to get Overcut into other people's hands. That could mean playtests, downloadable builds, a free release on Steam or itch.io, or something I have not considered yet. Team sizes, modes, services, and distribution can all change as the game teaches me what it needs to be.
+
+I'm not putting a release date on it or promising that every idea survives contact with an actual controller. I am saying that I want to take it far enough for other people to play, give feedback, and help me find out whether this kind of racing has a place.
+
+## Why Try This Now?
+
+The honest answer is that AI changes the size of project one person can reasonably attempt.
+
+That does not mean GitHub Copilot can disappear into a room and return with a good racing game. Game design still needs judgment. Handling still needs to feel right. Systems still need to fit together. Every shortcut creates something else that needs validation.
+
+What agents can do is help me move across more of the project without pretending I suddenly became an expert in every discipline. I can have one session research an Unreal Engine pattern, another review a design decision, and another work through a service plan while I keep the overall direction coherent.
+
+For me, Overcut is as much an engineering project as it is a game. I want to learn how agentic development changes game production, where it helps, where it makes a mess, and what kinds of guardrails make the work trustworthy.
+
+## How I'm Building It
+
+These are the main pieces of the plan today:
+
+| Technology | How I plan to use it |
+| --- | --- |
+| [Unreal Engine 5.8](https://dev.epicgames.com/documentation/en-us/unreal-engine/unreal-engine-5-8-documentation) | The game itself: driving, physics, presentation, and eventually multiplayer racing. |
+| [GitHub Copilot](https://docs.github.com/en/copilot) | Research, planning, implementation, review, testing, and coordinating work across the game, website, and future services. |
+| [Aspire](https://aspire.dev/get-started/what-is-aspire/) | A code-first model for developing and observing the services Overcut may need, such as leaderboards, accounts, matchmaking, rankings, and telemetry. |
+| [Microsoft Azure](https://azure.microsoft.com/) | The intended home for those services when they exist. There is no production game backend hiding behind the curtain yet. |
+
+The client and services talking to each other is genuinely part of the fun for me. I like seeing a system move from one program on my machine to a set of connected pieces that can be deployed, observed, and operated.
+
+That also gives me a reason to practice more of the full development lifecycle: architecture, local development, deployment, monitoring, iteration, and all the small operational decisions that become very real once somebody else depends on the thing working.
+
+Input hardware is another part of that learning. Overcut is starting controller-first because a gamepad gives me one practical target for tuning the driving experience. From there, I want to explore proper support for racing wheels and pedals.
+
+That expansion brings its own set of problems: device mappings, calibration, dead zones, force feedback, and a truly impressive number of hardware combinations. I am not promising support for every rig ever assembled in somebody's basement, but learning how to make the game feel right beyond a controller is absolutely part of what makes this project interesting to me.
+
+## About the Art
+
+I am not an artist. The concept art on the Overcut website was generated with AI because I needed a way to explore the visual direction without pretending I could produce that work myself.
+
+I also feel strongly that human artists create real value and deserve to be respected, credited, and paid. Generated concept art is a practical tool for this early solo project, but it is not a substitute for that work.
+
+My line is simple: **Overcut will not be monetized while AI-generated artwork remains in the game or its presentation.** If this ever grows into a commercial project, that artwork needs to be replaced by work made by people.
+
+For now, the images are concept art. They are not screenshots, final assets, or a claim about how polished the finished game will look.
+
+## Building in Public-ish
+
+The game repository is private right now. That may change someday, but I need to understand what can responsibly be shared before I open it up.
+
+The development process will be public in a different way. I plan to post regular updates here about what changed, what worked, what did not, and what I learned. Some weeks may produce a lot. Others may produce one stubborn physics bug and a newfound respect for everyone who has ever tuned a virtual tire.
+
+These posts will not be exhaustive coding tutorials. Think of them as a development journal from a programmer trying to become a game developer while the tools for both jobs are changing underneath us.
+
+You can follow every entry on the [Building Overcut series page](/series/overcut).
+
+## Let's See How Far It Goes
+
+This is an ambitious project for one person. I have a job, a family, other commitments, and a proven ability to invent side projects faster than I can finish them.
+
+But I care about this one. It combines games, racing, distributed systems, developer tools, and the bigger question I keep coming back to: what can we build now that would have been unrealistic for one person a few years ago?
+
+If the idea sounds interesting, start with [overcut.racing](https://overcut.racing/) and follow this series as the prototype grows. I don't know exactly where the road ends yet.
+
+I would really like this to be the one that crosses the finish line.

@@ -1,17 +1,52 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import ArticleCard from '../../components/ArticleCard.astro';
+import { seriesMetadata } from '../../data/series';
 import { getCollection } from 'astro:content';
 
 const articles = (await getCollection('articles', ({ data }) => !data.draft))
   .sort((a, b) => new Date(b.data.pubDate).getTime() - new Date(a.data.pubDate).getTime());
+const series = Object.values(seriesMetadata);
 ---
 
 <BaseLayout title="Blog" description="Articles on software engineering, AI, developer tools, and making it up as I go along.">
   <h1 class="text-4xl font-bold mb-2" style="color: var(--color-text-primary);">Blog</h1>
-  <p class="mb-10" style="color: var(--color-text-secondary);">
+  <p class="mb-12" style="color: var(--color-text-secondary);">
     Thoughts on software engineering, AI, developer tools, and whatever I'm tinkering with.
   </p>
+
+  <section class="mb-12" aria-labelledby="series-heading">
+    <h2 id="series-heading" class="text-2xl font-bold mb-4" style="color: var(--color-text-primary);">
+      Series
+    </h2>
+    <div style="border-block: 1px solid rgba(168, 85, 247, 0.2);">
+      {series.map((item) => (
+        <a
+          href={item.href}
+          class="group flex flex-col gap-3 py-5 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div>
+            <h3
+              class="text-lg font-semibold mb-1 group-hover:text-[var(--color-accent-green)] transition-colors"
+              style="color: var(--color-text-primary);"
+            >
+              {item.title}
+            </h3>
+            <p class="text-sm max-w-2xl" style="color: var(--color-text-secondary);">
+              {item.description}
+            </p>
+          </div>
+          <span class="text-sm font-semibold whitespace-nowrap" style="color: var(--color-accent-purple);">
+            View series →
+          </span>
+        </a>
+      ))}
+    </div>
+  </section>
+
+  <h2 class="text-2xl font-bold mb-6" style="color: var(--color-text-primary);">
+    Latest posts
+  </h2>
 
   {articles.length === 0 ? (
     <div class="glass-card p-8 text-center">
